@@ -3,122 +3,129 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Хроники Порто-Инверно | Читальный зал и База Знаний</title>
+  <title>Хроники Порто-Инверно | Портал кампании 1931</title>
   
-  <!-- Google Fonts: Cinzel for Noir headers, Lora for literature reading, Inter for UI -->
+  <!-- Modern Fonts: Cinzel Decorative, Outfit for ultra-clean UI, Lora for luxury literature reading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-noir">
 
-  <!-- Background Ambience Effect -->
-  <div class="ambient-glow glow-1"></div>
-  <div class="ambient-glow glow-2"></div>
-  <div class="fog-overlay"></div>
+  <!-- Interactive Dynamic Mesh Background -->
+  <div class="mesh-bg">
+    <div class="mesh-orb orb-gold"></div>
+    <div class="mesh-orb orb-crimson"></div>
+    <div class="mesh-orb orb-blue"></div>
+  </div>
+  <div class="film-grain"></div>
 
   <!-- Header -->
-  <header class="app-header">
-    <div class="header-left">
-      <div class="logo-badge">1931</div>
-      <div class="title-group">
-        <h1 class="logo-title">PORTO INVERNO</h1>
-        <span class="logo-subtitle">Хроники, Досье и Архив Кампании</span>
+  <header class="navbar-glass">
+    <div class="nav-brand">
+      <div class="brand-badge">1931</div>
+      <div class="brand-text">
+        <h1 class="brand-title">PORTO INVERNO</h1>
+        <span class="brand-subtitle">Архив Хроник • Досье • Обратная Связь</span>
       </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <nav class="nav-tabs" id="navTabs">
-      <button class="nav-btn active" data-tab="chapters">
-        <span class="btn-icon">📖</span> Хроники сессий
-        <span class="badge-count" id="chaptersCount">0</span>
+    <!-- Navigation Bar -->
+    <nav class="nav-tabs-pill" id="navTabs">
+      <button class="tab-pill active" data-tab="chapters">
+        <span class="tab-icon">📖</span> Хроники
+        <span class="tab-badge" id="chaptersCount">0</span>
       </button>
-      <button class="nav-btn" data-tab="characters">
-        <span class="btn-icon">👤</span> Досье персонажей
-        <span class="badge-count" id="charactersCount">0</span>
+      <button class="tab-pill" data-tab="characters">
+        <span class="tab-icon">👤</span> Досье
+        <span class="tab-badge" id="charactersCount">0</span>
       </button>
-      <button class="nav-btn" data-tab="telegram">
-        <span class="btn-icon">📱</span> Для Telegram
+      <button class="tab-pill tab-pill-highlight" data-tab="feedback">
+        <span class="tab-icon">⭐</span> Обратная Связь
+      </button>
+      <button class="tab-pill" data-tab="telegram">
+        <span class="tab-icon">📱</span> Для Telegram
       </button>
     </nav>
 
     <!-- Header Actions -->
-    <div class="header-right">
-      <div class="search-box">
+    <div class="nav-actions">
+      <div class="search-glass">
         <span class="search-icon">🔍</span>
-        <input type="text" id="globalSearch" placeholder="Поиск по главам, именам, уликам..." autocomplete="off">
-        <button id="clearSearch" class="clear-btn" style="display: none;">✕</button>
+        <input type="text" id="globalSearch" placeholder="Поиск по архиву..." autocomplete="off">
+        <button id="clearSearch" class="search-clear-btn" style="display: none;">✕</button>
       </div>
     </div>
   </header>
 
   <!-- Reading Progress Bar -->
-  <div class="reading-progress-bar" id="readingProgress"></div>
+  <div class="reading-progress-track">
+    <div class="reading-progress-fill" id="readingProgress"></div>
+  </div>
 
-  <!-- Main Content Layout -->
-  <main class="app-main">
+  <!-- Main Container -->
+  <main class="main-wrapper">
 
-    <!-- ================= CHAPTERS TAB ================= -->
-    <section class="tab-pane active" id="tab-chapters">
-      <div class="chapters-layout">
+    <!-- ================= 1. TAB: CHAPTERS ================= -->
+    <section class="tab-view active" id="tab-chapters">
+      <div class="reader-grid">
         
-        <!-- Left Sidebar: Chapter List & Filters -->
-        <aside class="chapters-sidebar">
-          <div class="sidebar-header">
-            <span class="sidebar-title">Сюжетные ветки</span>
-            <div class="filter-pills" id="storylineFilters">
-              <button class="pill-btn active" data-filter="all">Все</button>
-              <button class="pill-btn" data-filter="Молли и Хизер">Молли & Хизер</button>
-              <button class="pill-btn" data-filter="Эйден и Малкольм">Эйден & Малкольм</button>
-              <button class="pill-btn" data-filter="Соло">Соло</button>
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar-glass">
+          <div class="sidebar-top">
+            <div class="section-label">Сюжетные ветки</div>
+            <div class="pill-group" id="storylineFilters">
+              <button class="filter-chip active" data-filter="all">Все главы</button>
+              <button class="filter-chip" data-filter="Молли и Хизер">Молли & Хизер</button>
+              <button class="filter-chip" data-filter="Эйден и Малкольм">Эйден & Малкольм</button>
+              <button class="filter-chip" data-filter="Соло">Соло</button>
             </div>
           </div>
 
-          <div class="chapter-list-scroll" id="chapterListContainer">
+          <div class="chapters-scroll" id="chapterListContainer">
             <!-- Dynamically populated via JS -->
           </div>
         </aside>
 
-        <!-- Right Content: Chapter Reader -->
-        <article class="chapter-reader-view" id="readerView">
-          <div class="reader-toolbar">
-            <div class="reader-meta">
-              <span class="storyline-tag" id="readerStoryline">Ветка</span>
-              <span class="date-tag" id="readerDate">Дата</span>
-              <span class="read-time" id="readerReadTime">~3 мин чтения</span>
+        <!-- Chapter Reader Pane -->
+        <article class="reader-pane" id="readerView">
+          <div class="reader-header-bar">
+            <div class="meta-tags-row">
+              <span class="story-badge" id="readerStoryline">Ветка</span>
+              <span class="meta-item" id="readerDate">📅 Дата</span>
+              <span class="meta-item" id="readerReadTime">⏱ Время чтения</span>
             </div>
 
-            <div class="reader-actions">
-              <button class="action-btn" id="btnCopyTelegram" title="Скопировать отформатированный текст для Telegram">
-                <span class="btn-icon">📋</span> В Telegram
+            <div class="reader-ctrls">
+              <button class="btn-glass" id="btnCopyTelegram" title="Скопировать для Telegram">
+                <span class="icon">📋</span> В Telegram
               </button>
-              <div class="font-resizer">
-                <button class="font-btn" id="btnFontDown" title="Уменьшить шрифт">A-</button>
-                <button class="font-btn" id="btnFontUp" title="Увеличить шрифт">A+</button>
+              <div class="font-stepper">
+                <button id="btnFontDown" title="Уменьшить">A-</button>
+                <button id="btnFontUp" title="Увеличить">A+</button>
               </div>
             </div>
           </div>
 
-          <div class="reader-article-header">
-            <h2 class="reader-title" id="readerTitle">Выберите главу</h2>
-            <div class="reader-divider"></div>
+          <div class="reader-headline">
+            <h2 class="headline-text" id="readerTitle">Выберите главу</h2>
+            <div class="accent-line"></div>
           </div>
 
-          <div class="reader-body" id="readerBody">
+          <div class="prose-content" id="readerBody">
             <div class="empty-state">
-              <p>Загрузка хроник...</p>
+              <p>Загрузка архива...</p>
             </div>
           </div>
 
-          <!-- Reader Navigation Footer -->
-          <footer class="reader-footer">
-            <button class="nav-page-btn prev" id="btnPrevChapter">
-              <span class="arrow">←</span> Предыдущая глава
+          <footer class="reader-nav-footer">
+            <button class="btn-nav prev" id="btnPrevChapter">
+              <span>←</span> Предыдущая глава
             </button>
-            <button class="nav-page-btn next" id="btnNextChapter">
-              Следующая глава <span class="arrow">→</span>
+            <button class="btn-nav next" id="btnNextChapter">
+              Следующая глава <span>→</span>
             </button>
           </footer>
         </article>
@@ -126,97 +133,197 @@
       </div>
     </section>
 
-    <!-- ================= CHARACTERS TAB ================= -->
-    <section class="tab-pane" id="tab-characters">
-      <div class="characters-container">
+    <!-- ================= 2. TAB: CHARACTERS ================= -->
+    <section class="tab-view" id="tab-characters">
+      <div class="characters-hub">
         
         <!-- Filter Controls -->
-        <div class="characters-filter-bar">
-          <div class="filter-group">
-            <span class="filter-label">Статус:</span>
-            <div class="filter-pills" id="charStatusFilters">
-              <button class="pill-btn active" data-status="all">Все</button>
-              <button class="pill-btn" data-status="Жив">Живы</button>
-              <button class="pill-btn" data-status="Погиб">Погибли</button>
-              <button class="pill-btn" data-status="В бегах">В бегах</button>
-              <button class="pill-btn" data-status="Ранен">Ранены</button>
+        <div class="filter-glass-card">
+          <div class="filter-row">
+            <span class="filter-title">Статус:</span>
+            <div class="chip-row" id="charStatusFilters">
+              <button class="filter-chip active" data-status="all">Все</button>
+              <button class="filter-chip chip-alive" data-status="Жив">🟢 Живы</button>
+              <button class="filter-chip chip-dead" data-status="Погиб">🔴 Погибли</button>
+              <button class="filter-chip chip-run" data-status="В бегах">🟣 В бегах</button>
+              <button class="filter-chip chip-injured" data-status="Ранен">🟡 Ранены</button>
             </div>
           </div>
 
-          <div class="filter-group">
-            <span class="filter-label">Фракция:</span>
-            <div class="filter-pills" id="charFactionFilters">
-              <button class="pill-btn active" data-faction="all">Все фракции</button>
-              <button class="pill-btn" data-faction="Синдикат Фишера">Синдикат Фишера</button>
-              <button class="pill-btn" data-faction="Команда Крауча">Команда Крауча</button>
-              <button class="pill-btn" data-faction="Синдикат Винсента">Синдикат Винсента</button>
-              <button class="pill-btn" data-faction="Картель Эль Гринго">Эль Гринго</button>
-              <button class="pill-btn" data-faction="Мэрия и Власть">Мэрия</button>
+          <div class="filter-row">
+            <span class="filter-title">Фракция:</span>
+            <div class="chip-row" id="charFactionFilters">
+              <button class="filter-chip active" data-faction="all">Все фракции</button>
+              <button class="filter-chip" data-faction="Банда Крауча">Банда Крауча (8 чел.)</button>
+              <button class="filter-chip" data-faction="Картель Эль Гринго">Эль Гринго</button>
+              <button class="filter-chip" data-faction="Семья Фишеров">Семья Фишеров</button>
+              <button class="filter-chip" data-faction="Синдикат Винсента">Синдикат Винсента</button>
+              <button class="filter-chip" data-faction="Мэрия и Власть">Мэрия и Власть</button>
+              <button class="filter-chip" data-faction="Порто-Инверно">Порто-Инверно</button>
             </div>
           </div>
         </div>
 
-        <!-- Character Cards Grid -->
-        <div class="character-grid" id="characterGrid">
+        <!-- Cards Grid -->
+        <div class="dossier-grid" id="characterGrid">
           <!-- Dynamically populated via JS -->
         </div>
 
       </div>
     </section>
 
-    <!-- ================= TELEGRAM FORMATTER TAB ================= -->
-    <section class="tab-pane" id="tab-telegram">
-      <div class="telegram-hub-container">
+    <!-- ================= 3. TAB: FEEDBACK / ОБРАТНАЯ СВЯЗЬ (ОС) ================= -->
+    <section class="tab-view" id="tab-feedback">
+      <div class="feedback-hub">
         
-        <div class="telegram-intro-card">
-          <div class="intro-badge">Telegram Hub</div>
-          <h2>Готовые посты и навигация для каналов и чатов</h2>
-          <p>Все тексты предварительно отформатированы с поддержкой цитат, эмодзи-плашек и хэштегов. Нажмите <b>«Скопировать»</b> и вставьте прямо в диалог или канал.</p>
+        <div class="feedback-hero">
+          <div class="hero-badge">Блок игрока</div>
+          <h2>⭐ Обратная Связь по сессиям (ОС)</h2>
+          <p>Заполните впечатления от прошедшей игры, оцените накал драмы, выберите MVP и поделитесь фанатскими теориями. Вы сможете в один клик скопировать красиво оформленный отзыв для отправки в Telegram!</p>
         </div>
 
-        <div class="telegram-tools-grid">
+        <div class="feedback-layout">
           
-          <!-- Post Selector & Controls -->
-          <div class="telegram-picker-card">
-            <h3>Выберите материал:</h3>
-            <div class="picker-group">
-              <label>Тип контента:</label>
+          <!-- Feedback Form -->
+          <div class="feedback-form-card">
+            <h3 class="form-title">Анкета обратной связи</h3>
+            
+            <div class="form-grid">
+              <div class="input-field">
+                <label>Ваше имя / Игрок / Персонаж:</label>
+                <input type="text" id="fbAuthor" placeholder="Например: Молли / Женя">
+              </div>
+
+              <div class="input-field">
+                <label>Какая сессия:</label>
+                <select id="fbSessionSelect"></select>
+              </div>
+            </div>
+
+            <!-- Star Rating System -->
+            <div class="input-field">
+              <label>Оценка сессии (от 1 до 10): <span class="rating-value" id="fbRatingVal">10 / 10 🔥</span></label>
+              <div class="rating-stars" id="ratingStars">
+                <button type="button" class="star active" data-rate="1">★</button>
+                <button type="button" class="star active" data-rate="2">★</button>
+                <button type="button" class="star active" data-rate="3">★</button>
+                <button type="button" class="star active" data-rate="4">★</button>
+                <button type="button" class="star active" data-rate="5">★</button>
+                <button type="button" class="star active" data-rate="6">★</button>
+                <button type="button" class="star active" data-rate="7">★</button>
+                <button type="button" class="star active" data-rate="8">★</button>
+                <button type="button" class="star active" data-rate="9">★</button>
+                <button type="button" class="star active" data-rate="10">★</button>
+              </div>
+            </div>
+
+            <div class="input-field">
+              <label>🏆 MVP сессии (Персонаж / Игрок, кто затащил):</label>
+              <input type="text" id="fbMvp" placeholder="Например: Калеб Маккой (поступок героя) / Иван / Бернард">
+            </div>
+
+            <div class="input-field">
+              <label>🔥 Что больше всего понравилось и зацепило:</label>
+              <textarea id="fbHighlights" rows="3" placeholder="Сцены, диалоги, накал страстей, юмор, повороты сюжета..."></textarea>
+            </div>
+
+            <div class="input-field">
+              <label>🕵️ Теории, догадки и планы на будущее:</label>
+              <textarea id="fbTheories" rows="3" placeholder="Что скрывает сиплый старик? Где Агнес? Что произойдет 1 ноября?.."></textarea>
+            </div>
+
+            <div class="input-field">
+              <label>✨ Звезда и Желание (Что было топ и чего хочется в следующей игре):</label>
+              <textarea id="fbWishes" rows="2" placeholder="Звезда: отыгрыш Крауча и пощечина; Желание: больше перестрелок / душевных разговоров..."></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn-gold-glow" id="btnGenerateTgFeedback">
+                📋 Скопировать отзыв для Telegram
+              </button>
+              <button class="btn-glass" id="btnSaveLocalFeedback">
+                💾 Сохранить в историю
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Telegram Feedback Preview -->
+          <div class="feedback-preview-pane">
+            <div class="mockup-tg-card">
+              <div class="mockup-header">
+                <div class="mockup-avatar">⭐</div>
+                <div class="mockup-info">
+                  <div class="mockup-name">Отзыв по игре</div>
+                  <div class="mockup-sub">Предпросмотр сообщения Telegram</div>
+                </div>
+              </div>
+              <div class="mockup-body" id="fbTgLivePreview">
+                Заполните поля слева, чтобы увидеть предпросмотр...
+              </div>
+            </div>
+
+            <!-- Saved Local Feedback History -->
+            <div class="saved-feedback-box" id="savedFeedbackBox">
+              <h4>📜 Сохраненные отзывы</h4>
+              <div id="savedFeedbackList">
+                <p class="empty-hint">История пока пуста</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= 4. TAB: TELEGRAM HUB ================= -->
+    <section class="tab-view" id="tab-telegram">
+      <div class="telegram-hub">
+        
+        <div class="hub-hero">
+          <div class="hero-badge">Telegram Navigator</div>
+          <h2>📱 Быстрый генератор постов для Telegram</h2>
+          <p>Выберите любой материал кампании и скопируйте его с готовой премиальной разметкой для чата или канала игроков.</p>
+        </div>
+
+        <div class="hub-grid">
+          
+          <div class="hub-picker-card">
+            <h3 class="picker-title">Параметры поста:</h3>
+            
+            <div class="input-field">
+              <label>Тип публикации:</label>
               <select id="tgContentType">
                 <option value="navigator">📌 Главный навигационный пост (для закрепа)</option>
                 <option value="latest">⚡ Саммари последней сессии (ч. 11)</option>
-                <option value="chapter">📖 Любая глава из архива</option>
-                <option value="characters_summary">👤 Сводка по персонажам</option>
+                <option value="chapter">📖 Любая глава архива</option>
+                <option value="characters_summary">👤 Сводка по персонажам и бандам</option>
               </select>
             </div>
 
-            <div class="picker-group" id="tgChapterSelectGroup" style="display: none;">
+            <div class="input-field" id="tgChapterSelectGroup" style="display: none;">
               <label>Выберите главу:</label>
               <select id="tgChapterSelect"></select>
             </div>
 
-            <button class="btn-primary" id="btnCopyActiveTg">
+            <button class="btn-gold-glow" id="btnCopyActiveTg">
               📋 Скопировать готовый пост для Telegram
             </button>
           </div>
 
-          <!-- Live Telegram Message Mockup Preview -->
-          <div class="telegram-preview-wrapper">
-            <div class="tg-phone-frame">
-              <div class="tg-chat-header">
-                <div class="tg-avatar">🍸</div>
-                <div class="tg-chat-info">
-                  <div class="tg-chat-name">Хроники Порто-Инверно</div>
-                  <div class="tg-chat-status">канал • 1931 год</div>
-                </div>
+          <!-- Phone Mockup Preview -->
+          <div class="phone-mockup">
+            <div class="phone-bar">
+              <div class="phone-avatar">🍸</div>
+              <div class="phone-details">
+                <div class="phone-title">Хроники Порто-Инверно</div>
+                <div class="phone-sub">канал • 1931</div>
               </div>
-
-              <div class="tg-chat-body">
-                <div class="tg-message-bubble">
-                  <div class="tg-message-content" id="tgPreviewContent">
-                    Загрузка предпросмотра...
-                  </div>
-                  <div class="tg-message-time">19:31 ✓✓</div>
-                </div>
+            </div>
+            <div class="phone-screen">
+              <div class="tg-bubble">
+                <div id="tgPreviewContent">Загрузка предпросмотра...</div>
+                <div class="bubble-time">19:31 ✓✓</div>
               </div>
             </div>
           </div>
@@ -229,37 +336,46 @@
   </main>
 
   <!-- Character Detail Modal -->
-  <div class="modal-backdrop" id="charModal" style="display: none;">
-    <div class="modal-card">
-      <button class="modal-close-btn" id="modalClose">✕</button>
-      <div class="modal-header">
-        <div class="modal-badge-row">
-          <span class="status-badge" id="modalStatus">Статус</span>
-          <span class="faction-badge" id="modalFaction">Фракция</span>
+  <div class="modal-overlay" id="charModal" style="display: none;">
+    <div class="modal-window">
+      <button class="modal-close" id="modalClose">✕</button>
+      
+      <div class="modal-top">
+        <div class="modal-avatar" id="modalAvatarRing">
+          <span id="modalAvatarInitials">П</span>
         </div>
-        <h2 class="modal-name" id="modalName">Имя Персонажа</h2>
-        <div class="modal-role" id="modalRole">Специализация</div>
+        <div class="modal-meta-col">
+          <div class="modal-badges-row">
+            <span class="status-chip" id="modalStatus">Статус</span>
+            <span class="faction-chip" id="modalFaction">Фракция</span>
+          </div>
+          <h2 class="modal-char-name" id="modalName">Имя Персонажа</h2>
+          <div class="modal-char-role" id="modalRole">Специализация</div>
+        </div>
       </div>
-      <div class="modal-body">
-        <div class="modal-section">
-          <h4>Характер, факты и предыстория:</h4>
+
+      <div class="modal-content-scroll">
+        <div class="dossier-block">
+          <div class="block-title">Характер, предыстория и поступки:</div>
           <p id="modalBio"></p>
         </div>
-        <div class="modal-section" id="modalRelationsSection">
-          <h4>Связи и сюжетные ветки:</h4>
+        
+        <div class="dossier-block" id="modalRelationsSection">
+          <div class="block-title">Связанные персонажи и сюжетные ветки:</div>
           <p id="modalRelations"></p>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-primary" id="modalCopyTgBtn">📋 Скопировать досье для Telegram</button>
+
+      <div class="modal-bottom-actions">
+        <button class="btn-gold-glow" id="modalCopyTgBtn">📋 Скопировать досье для Telegram</button>
       </div>
     </div>
   </div>
 
   <!-- Toast Notification -->
-  <div class="toast-notification" id="toast">Текст скопирован!</div>
+  <div class="toast-popup" id="toast">Скопировано!</div>
 
-  <!-- Load bundled data and app logic -->
+  <!-- Application Scripts -->
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>

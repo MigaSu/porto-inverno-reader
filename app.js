@@ -1,29 +1,30 @@
 /**
- * PORTO INVERNO - Interactive Web Reader & Telegram Hub
- * Application Logic
+ * PORTO INVERNO - Web Portal & Feedback Hub
+ * Ultra-Modern Application Logic
  */
 
 document.addEventListener('DOMContentLoaded', () => {
   const data = window.PORTO_DATA || { summaries: [], characters: [] };
   
   // State
-  let currentChapterIndex = data.summaries.length > 0 ? data.summaries.length - 1 : 0; // Default to latest
+  let currentChapterIndex = data.summaries.length > 0 ? data.summaries.length - 1 : 0;
   let activeStoryline = 'all';
   let activeCharStatus = 'all';
   let activeCharFaction = 'all';
   let searchQuery = '';
   let readerFontSize = 1.15;
+  let currentRating = 10;
 
   // DOM Elements
-  const navTabs = document.querySelectorAll('.nav-btn');
-  const tabPanes = document.querySelectorAll('.tab-pane');
+  const navTabs = document.querySelectorAll('.tab-pill');
+  const tabViews = document.querySelectorAll('.tab-view');
   const chaptersCountEl = document.getElementById('chaptersCount');
   const charactersCountEl = document.getElementById('charactersCount');
   const globalSearchInput = document.getElementById('globalSearch');
   const clearSearchBtn = document.getElementById('clearSearch');
   const readingProgressBar = document.getElementById('readingProgress');
 
-  // Chapter Reader Elements
+  // Reader Elements
   const chapterListContainer = document.getElementById('chapterListContainer');
   const storylineFilters = document.getElementById('storylineFilters');
   const readerStoryline = document.getElementById('readerStoryline');
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const charFactionFilters = document.getElementById('charFactionFilters');
   const charModal = document.getElementById('charModal');
   const modalClose = document.getElementById('modalClose');
+  const modalAvatarInitials = document.getElementById('modalAvatarInitials');
   const modalName = document.getElementById('modalName');
   const modalRole = document.getElementById('modalRole');
   const modalStatus = document.getElementById('modalStatus');
@@ -51,6 +53,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalRelations = document.getElementById('modalRelations');
   const modalRelationsSection = document.getElementById('modalRelationsSection');
   const modalCopyTgBtn = document.getElementById('modalCopyTgBtn');
+
+  // Feedback Elements (ОС)
+  const fbAuthor = document.getElementById('fbAuthor');
+  const fbSessionSelect = document.getElementById('fbSessionSelect');
+  const fbRatingVal = document.getElementById('fbRatingVal');
+  const ratingStars = document.querySelectorAll('#ratingStars .star');
+  const fbMvp = document.getElementById('fbMvp');
+  const fbHighlights = document.getElementById('fbHighlights');
+  const fbTheories = document.getElementById('fbTheories');
+  const fbWishes = document.getElementById('fbWishes');
+  const fbTgLivePreview = document.getElementById('fbTgLivePreview');
+  const btnGenerateTgFeedback = document.getElementById('btnGenerateTgFeedback');
+  const btnSaveLocalFeedback = document.getElementById('btnSaveLocalFeedback');
+  const savedFeedbackList = document.getElementById('savedFeedbackList');
 
   // Telegram Hub Elements
   const tgContentType = document.getElementById('tgContentType');
@@ -62,30 +78,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let activeModalCharacter = null;
 
-  // Initialize Counts
+  // Set Counts
   chaptersCountEl.textContent = data.summaries.length;
   charactersCountEl.textContent = data.characters.length;
 
   // ----------------------------------------------------
-  // Markdown & Text Helpers
+  // Toast & Helpers
   // ----------------------------------------------------
+  function showToast(msg = 'Скопировано!') {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  function copyToClipboard(text, successMsg) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(successMsg);
+    }).catch(err => {
+      console.error('Copy error:', err);
+    });
+  }
+
   function parseMarkdown(md) {
     if (!md) return '';
-    // Strip leading # headers if redundant
     let text = md.replace(/^#\s+[^\n]+\n+/, '');
 
-    const paragraphs = text.split(/\n\s*\n/);
-    return paragraphs.map(p => {
-      let trimmed = p.trim();
-      if (!trimmed) return '';
-
-      if (trimmed.startsWith('> ')) {
-        return `<blockquote>${formatInline(trimmed.replace(/^>\s+/, ''))}</blockquote>`;
+    return text.split(/\n\s*\n/).map(p => {
+      let t = p.trim();
+      if (!t) return '';
+      if (t.startsWith('> ')) {
+        return `<blockquote>${formatInline(t.replace(/^>\s+/, ''))}</blockquote>`;
       }
-      if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
-        return `<h3>${formatInline(trimmed.replace(/^#+\s+/, ''))}</h3>`;
+      if (t.startsWith('## ') || t.startsWith('### ')) {
+        return `<h3>${formatInline(t.replace(/^#+\s+/, ''))}</h3>`;
       }
-      return `<p>${formatInline(trimmed)}</p>`;
+      return `<p>${formatInline(t)}</p>`;
     }).join('');
   }
 
@@ -96,41 +123,25 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/`([^`]+)`/g, '<code>$1</code>');
   }
 
-  function showToast(msg = 'Скопировано для Telegram!') {
-    toast.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => {
-      toast.classList.remove('show');
-    }, 2500);
-  }
-
-  function copyToClipboard(text, successMsg) {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast(successMsg);
-    }).catch(err => {
-      console.error('Copy failed:', err);
-    });
-  }
-
   // ----------------------------------------------------
-  // Navigation Tabs
+  // Tab Navigation
   // ----------------------------------------------------
   navTabs.forEach(btn => {
     btn.addEventListener('click', () => {
       navTabs.forEach(b => b.classList.remove('active'));
-      tabPanes.forEach(p => p.classList.remove('active'));
+      tabViews.forEach(v => v.classList.remove('active'));
 
       btn.classList.add('active');
       const tabId = 'tab-' + btn.getAttribute('data-tab');
-      const targetPane = document.getElementById(tabId);
-      if (targetPane) targetPane.classList.add('active');
+      const targetView = document.getElementById(tabId);
+      if (targetView) targetView.classList.add('active');
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
 
   // ----------------------------------------------------
-  // Search Functionality
+  // Global Search
   // ----------------------------------------------------
   globalSearchInput.addEventListener('input', (e) => {
     searchQuery = e.target.value.toLowerCase().trim();
@@ -148,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ----------------------------------------------------
-  // Chapter List & Reader
+  // Chapter Reader
   // ----------------------------------------------------
   function renderChapterList() {
     chapterListContainer.innerHTML = '';
@@ -162,29 +173,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (filtered.length === 0) {
-      chapterListContainer.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: var(--text-dim);">Ничего не найдено</div>';
+      chapterListContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-dim);">Главы не найдены</div>';
       return;
     }
 
-    filtered.forEach((item) => {
-      const actualIndex = data.summaries.findIndex(s => s.id === item.id);
+    filtered.forEach(item => {
+      const actualIdx = data.summaries.findIndex(s => s.id === item.id);
       const card = document.createElement('div');
-      card.className = `chapter-card ${actualIndex === currentChapterIndex ? 'active' : ''}`;
+      card.className = `chapter-item ${actualIdx === currentChapterIndex ? 'active' : ''}`;
       
       let tagClass = 'tag-solo';
       if (item.category === 'Молли и Хизер') tagClass = 'tag-molly';
       else if (item.category === 'Эйден и Малкольм') tagClass = 'tag-aiden';
 
       card.innerHTML = `
-        <div class="chapter-card-top">
-          <span class="chapter-card-tag ${tagClass}">${item.category}</span>
-          <span class="chapter-card-date">${item.date || ''}</span>
+        <div class="chapter-item-top">
+          <span class="chapter-tag ${tagClass}">${item.category}</span>
+          <span class="chapter-date">${item.date || ''}</span>
         </div>
-        <div class="chapter-card-title">${item.title}</div>
+        <div class="chapter-title">${item.title}</div>
       `;
 
       card.addEventListener('click', () => {
-        currentChapterIndex = actualIndex;
+        currentChapterIndex = actualIdx;
         renderChapterList();
         loadChapter(currentChapterIndex);
       });
@@ -195,40 +206,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function loadChapter(index) {
     if (!data.summaries[index]) return;
-    const chapter = data.summaries[index];
+    const ch = data.summaries[index];
 
-    readerStoryline.textContent = chapter.category;
-    readerDate.textContent = chapter.date ? `📅 ${chapter.date}` : '';
+    readerStoryline.textContent = ch.category;
+    readerDate.textContent = ch.date ? `📅 ${ch.date}` : '';
     
-    // Estimate reading time
-    const words = chapter.content.split(/\s+/).length;
-    const minutes = Math.max(1, Math.ceil(words / 180));
-    readerReadTime.textContent = `⏱ ~${minutes} мин чтения (${words} слов)`;
+    const words = ch.content.split(/\s+/).length;
+    const mins = Math.max(1, Math.ceil(words / 180));
+    readerReadTime.textContent = `⏱ ~${mins} мин (${words} слов)`;
 
-    readerTitle.textContent = chapter.title;
-    readerBody.innerHTML = parseMarkdown(chapter.content);
+    readerTitle.textContent = ch.title;
+    readerBody.innerHTML = parseMarkdown(ch.content);
 
-    // Prev/Next buttons
     btnPrevChapter.disabled = index <= 0;
     btnNextChapter.disabled = index >= data.summaries.length - 1;
 
-    // Scroll to reader top on mobile
     if (window.innerWidth < 1080) {
       document.getElementById('readerView').scrollIntoView({ behavior: 'smooth' });
     }
   }
 
-  // Storyline Filter Buttons
   storylineFilters.addEventListener('click', (e) => {
-    if (e.target.classList.contains('pill-btn')) {
-      storylineFilters.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    if (e.target.classList.contains('filter-chip')) {
+      storylineFilters.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active');
       activeStoryline = e.target.getAttribute('data-filter');
       renderChapterList();
     }
   });
 
-  // Chapter Navigation Footer
   btnPrevChapter.addEventListener('click', () => {
     if (currentChapterIndex > 0) {
       currentChapterIndex--;
@@ -247,32 +253,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Font Resizing
   btnFontUp.addEventListener('click', () => {
     if (readerFontSize < 1.6) {
       readerFontSize += 0.08;
-      document.documentElement.style.setProperty('--reader-font-size', `${readerFontSize}rem`);
+      document.documentElement.style.setProperty('--reader-size', `${readerFontSize}rem`);
     }
   });
 
   btnFontDown.addEventListener('click', () => {
     if (readerFontSize > 0.9) {
       readerFontSize -= 0.08;
-      document.documentElement.style.setProperty('--reader-font-size', `${readerFontSize}rem`);
+      document.documentElement.style.setProperty('--reader-size', `${readerFontSize}rem`);
     }
   });
 
-  // Copy Chapter for Telegram
   btnCopyTelegram.addEventListener('click', () => {
-    const chapter = data.summaries[currentChapterIndex];
-    if (!chapter) return;
+    const ch = data.summaries[currentChapterIndex];
+    if (!ch) return;
 
-    let tgText = `🍸 **ХРОНИКИ ПОРТО-ИНВЕРНО: ${chapter.title.toUpperCase()}**\n\n`;
-    tgText += `> 📍 *${chapter.category} • ${chapter.date || '1931 год'}*\n\n`;
-    
-    const cleanContent = chapter.content.replace(/^#\s+[^\n]+\n+/, '').trim();
-    tgText += cleanContent + '\n\n';
-    tgText += `🔖 #ПортоИнверно #${chapter.category.replace(/\s+/g, '')} #Хроники`;
+    let tgText = `🍸 **ХРОНИКИ ПОРТО-ИНВЕРНО: ${ch.title.toUpperCase()}**\n\n`;
+    tgText += `> 📍 *${ch.category} • ${ch.date || '1931 год'}*\n\n`;
+    const clean = ch.content.replace(/^#\s+[^\n]+\n+/, '').trim();
+    tgText += clean + '\n\n';
+    tgText += `🔖 #ПортоИнверно #${ch.category.replace(/\s+/g, '')} #Хроники`;
 
     copyToClipboard(tgText, 'Глава скопирована для Telegram!');
   });
@@ -294,57 +297,67 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (filtered.length === 0) {
-      characterGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 3rem; text-align: center; color: var(--text-dim);">Персонажи по заданным критериям не найдены</div>';
+      characterGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 4rem; text-align: center; color: var(--text-dim);">Персонажи не найдены</div>';
       return;
     }
 
     filtered.forEach(char => {
       const card = document.createElement('div');
-      card.className = 'character-card';
+      card.className = 'dossier-card';
 
-      let statusClass = 'status-alive';
-      if (char.status === 'Погиб') statusClass = 'status-dead';
-      else if (char.status === 'В бегах') statusClass = 'status-run';
-      else if (char.status === 'Ранен') statusClass = 'status-injured';
-      else if (char.status === 'Пропал') statusClass = 'status-missing';
+      let chipClass = 'chip-alive';
+      let icon = '🟢';
+      if (char.status === 'Погиб') { chipClass = 'chip-dead'; icon = '🔴'; }
+      else if (char.status === 'В бегах') { chipClass = 'chip-run'; icon = '🟣'; }
+      else if (char.status === 'Ранен') { chipClass = 'chip-injured'; icon = '🟡'; }
+      else if (char.status === 'Пропал') { chipClass = 'chip-missing'; icon = '⚪'; }
+
+      // Get initial
+      const initial = char.name.replace(/[^А-ЯЁA-Zа-яёa-z]/g, '').charAt(0).toUpperCase() || 'П';
 
       card.innerHTML = `
-        <div class="char-card-header">
-          <div class="char-badges">
-            <span class="status-pill ${statusClass}">${char.status}</span>
-            <span class="faction-pill">${char.faction}</span>
+        <div>
+          <div class="card-top-row">
+            <div class="avatar-ring">${initial}</div>
+            <div class="card-names-col">
+              <h3 class="card-char-name">${char.name}</h3>
+              <div class="card-char-role">${char.role || 'Персонаж'}</div>
+            </div>
           </div>
-          <h3 class="char-name">${char.name}</h3>
-          <div class="char-role">${char.role || 'Персонаж'}</div>
-          <p class="char-bio-excerpt">${char.bio || ''}</p>
+          
+          <div class="card-badges-row">
+            <span class="status-chip ${chipClass}">${icon} ${char.status}</span>
+            <span class="faction-chip">${char.faction}</span>
+          </div>
+
+          <p class="card-bio-snippet">${char.bio || ''}</p>
         </div>
-        <div class="char-footer-action">
-          <span>Подробнее в досье</span> →
+
+        <div class="card-action-link">
+          <span>Открыть полное досье</span> →
         </div>
       `;
 
-      card.addEventListener('click', () => {
-        openCharacterModal(char);
-      });
-
+      card.addEventListener('click', () => openCharacterModal(char, initial));
       characterGrid.appendChild(card);
     });
   }
 
-  function openCharacterModal(char) {
+  function openCharacterModal(char, initial) {
     activeModalCharacter = char;
+    modalAvatarInitials.textContent = initial || char.name.charAt(0);
     modalName.textContent = char.name;
     modalRole.textContent = char.role || 'Персонаж';
     modalStatus.textContent = char.status;
     modalFaction.textContent = char.faction;
 
-    let statusClass = 'status-alive';
-    if (char.status === 'Погиб') statusClass = 'status-dead';
-    else if (char.status === 'В бегах') statusClass = 'status-run';
-    else if (char.status === 'Ранен') statusClass = 'status-injured';
-    else if (char.status === 'Пропал') statusClass = 'status-missing';
+    let chipClass = 'chip-alive';
+    if (char.status === 'Погиб') chipClass = 'chip-dead';
+    else if (char.status === 'В бегах') chipClass = 'chip-run';
+    else if (char.status === 'Ранен') chipClass = 'chip-injured';
+    else if (char.status === 'Пропал') chipClass = 'chip-missing';
 
-    modalStatus.className = `status-badge ${statusClass}`;
+    modalStatus.className = `status-chip ${chipClass}`;
     modalBio.textContent = char.bio || 'Данные засекречены.';
 
     if (char.relations) {
@@ -357,14 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
     charModal.style.display = 'flex';
   }
 
-  modalClose.addEventListener('click', () => {
-    charModal.style.display = 'none';
-  });
-
+  modalClose.addEventListener('click', () => charModal.style.display = 'none');
   charModal.addEventListener('click', (e) => {
-    if (e.target === charModal) {
-      charModal.style.display = 'none';
-    }
+    if (e.target === charModal) charModal.style.display = 'none';
   });
 
   modalCopyTgBtn.addEventListener('click', () => {
@@ -379,13 +387,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     tgDossier += `🔖 #ПортоИнверно #ДосьеПерсонажей #${c.status.replace(/\s+/g, '')}`;
 
-    copyToClipboard(tgDossier, 'Досье персонажа скопировано для Telegram!');
+    copyToClipboard(tgDossier, 'Досье скопировано для Telegram!');
   });
 
-  // Character Filter Listeners
   charStatusFilters.addEventListener('click', (e) => {
-    if (e.target.classList.contains('pill-btn')) {
-      charStatusFilters.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    if (e.target.classList.contains('filter-chip')) {
+      charStatusFilters.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active');
       activeCharStatus = e.target.getAttribute('data-status');
       renderCharacters();
@@ -393,8 +400,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   charFactionFilters.addEventListener('click', (e) => {
-    if (e.target.classList.contains('pill-btn')) {
-      charFactionFilters.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    if (e.target.classList.contains('filter-chip')) {
+      charFactionFilters.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active');
       activeCharFaction = e.target.getAttribute('data-faction');
       renderCharacters();
@@ -402,9 +409,125 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ----------------------------------------------------
-  // Telegram Hub / Live Preview
+  // Feedback Hub (ОС)
   // ----------------------------------------------------
-  // Populate Chapter Selector in TG Hub
+  // Populate feedback session select
+  data.summaries.forEach((s, idx) => {
+    const opt = document.createElement('option');
+    opt.value = s.title;
+    opt.textContent = s.title;
+    fbSessionSelect.appendChild(opt);
+  });
+  if (data.summaries.length > 0) {
+    fbSessionSelect.value = data.summaries[data.summaries.length - 1].title;
+  }
+
+  // Star Rating Click Listeners
+  ratingStars.forEach(star => {
+    star.addEventListener('click', () => {
+      currentRating = parseInt(star.getAttribute('data-rate'), 10);
+      ratingStars.forEach(s => {
+        const r = parseInt(s.getAttribute('data-rate'), 10);
+        s.classList.toggle('active', r <= currentRating);
+      });
+      let emoji = currentRating >= 9 ? '🔥' : currentRating >= 7 ? '⭐' : '💀';
+      fbRatingVal.textContent = `${currentRating} / 10 ${emoji}`;
+      updateFeedbackPreview();
+    });
+  });
+
+  function generateFeedbackPost() {
+    const author = fbAuthor.value.trim() || 'Игрок';
+    const session = fbSessionSelect.value;
+    const mvp = fbMvp.value.trim();
+    const highlights = fbHighlights.value.trim();
+    const theories = fbTheories.value.trim();
+    const wishes = fbWishes.value.trim();
+
+    let starsStr = '★'.repeat(currentRating) + '☆'.repeat(10 - currentRating);
+
+    let text = `⭐ **ОБРАТНАЯ СВЯЗЬ ПО СЕССИИ | ПОРТО-ИНВЕРНО**\n\n`;
+    text += `👤 **Автор отзыва:** ${author}\n`;
+    text += `📖 **Сессия:** ${session}\n`;
+    text += `📊 **Оценка игры:** ${currentRating}/10  (${starsStr})\n\n`;
+
+    if (mvp) {
+      text += `🏆 **MVP сессии:** ${mvp}\n\n`;
+    }
+
+    if (highlights) {
+      text += `🔥 **Что зацепило / Впечатления:**\n> ${highlights.replace(/\n/g, '\n> ')}\n\n`;
+    }
+
+    if (theories) {
+      text += `🕵️ **Теории, догадки и планы:**\n${theories}\n\n`;
+    }
+
+    if (wishes) {
+      text += `✨ **Звезда и Желание:**\n${wishes}\n\n`;
+    }
+
+    text += `🔖 #ПортоИнверно #ОбратнаяСвязь #ОС #НРИ`;
+    return text;
+  }
+
+  function updateFeedbackPreview() {
+    const raw = generateFeedbackPost();
+    fbTgLivePreview.textContent = raw;
+  }
+
+  [fbAuthor, fbSessionSelect, fbMvp, fbHighlights, fbTheories, fbWishes].forEach(el => {
+    el.addEventListener('input', updateFeedbackPreview);
+    el.addEventListener('change', updateFeedbackPreview);
+  });
+
+  btnGenerateTgFeedback.addEventListener('click', () => {
+    const post = generateFeedbackPost();
+    copyToClipboard(post, 'Отзыв (ОС) скопирован для Telegram!');
+  });
+
+  // Local storage for feedback history
+  function loadLocalFeedback() {
+    const list = JSON.parse(localStorage.getItem('porto_feedback_history') || '[]');
+    if (list.length === 0) {
+      savedFeedbackList.innerHTML = '<p class="empty-hint">История пока пуста</p>';
+      return;
+    }
+    savedFeedbackList.innerHTML = '';
+    list.slice(-5).reverse().forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'saved-item';
+      div.innerHTML = `
+        <div>
+          <b>${item.session}</b> (${item.rating}/10) — <i>${item.author}</i>
+        </div>
+        <button class="btn-glass" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;">Копировать</button>
+      `;
+      div.querySelector('button').addEventListener('click', () => {
+        copyToClipboard(item.text, 'Сохраненный отзыв скопирован!');
+      });
+      savedFeedbackList.appendChild(div);
+    });
+  }
+
+  btnSaveLocalFeedback.addEventListener('click', () => {
+    const post = generateFeedbackPost();
+    const list = JSON.parse(localStorage.getItem('porto_feedback_history') || '[]');
+    list.push({
+      date: new Date().toLocaleDateString(),
+      session: fbSessionSelect.value,
+      author: fbAuthor.value.trim() || 'Игрок',
+      rating: currentRating,
+      text: post
+    });
+    localStorage.setItem('porto_feedback_history', JSON.stringify(list));
+    loadLocalFeedback();
+    showToast('Отзыв сохранен в историю!');
+  });
+
+  // ----------------------------------------------------
+  // Telegram Hub
+  // ----------------------------------------------------
   data.summaries.forEach((s, idx) => {
     const opt = document.createElement('option');
     opt.value = idx;
@@ -425,7 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
 > *«В этом городе либо ты держишь револьвер, либо на тебя уже примеряют деревянный бушлат...»*
 
 🗂 **БАЗА ЗНАНИЙ И ДОСЬЕ:**
-• Полный реестр действующих лиц и фракций (Фишеры, Винсент, Эль Гринго, Мэрия)
+• Полный реестр действующих лиц и банд (Фишеры, Банда Крауча, Эль Гринго, Мэрия)
 
 📖 **СЮЖЕТНЫЕ ВЕТКИ:**
 🍷 **Ветка Молли и Хизер** — борьба за империю Фишеров, ядовитые тайны семьи и взрывной юбилей мэра
@@ -451,22 +574,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (type === 'characters_summary') {
-      let res = `👤 **СВОДКА КЛЮЧЕВЫХ ПЕРСОНАЖЕЙ | ПОРТО-ИНВЕРНО**\n\n`;
-      const keyChars = data.characters.slice(0, 8);
-      keyChars.forEach(c => {
-        res += `• **${c.name}** (${c.status}) — ${c.role}\n`;
-      });
-      res += `\n...и еще более 25 персонажей в полном досье архива.\n\n🔖 #ПортоИнверно #Персонажи`;
-      return res;
+      return `👤 **СВОДКА КЛЮЧЕВЫХ ФРАКЦИЙ И БАНД | ПОРТО-ИНВЕРНО**
+
+🗡 **Банда Крауча (8 человек):**
+1. Крауч (Лидер) • 2. Гаред Венц (Тактик) • 3. Сильвия Дюпре (Снайпер)
+4. Калиб Маккой (Взрывотехник, †) • 5. Джонатан Кроули (Врач)
+6. Рой Маршал (Штурмовик) • 7. Бернард Кляйн (Инженер) • 8. Беатрис (Водитель)
+
+🇲🇽 **Картель «Эль Гринго»:**
+• Матео (Лидер) • Исабель (И.о. лидера) • Сантьяго (Снайпер)
+• Карлос (Водитель) • Пикля (Координатор)
+
+🏢 **Семья Фишеров:**
+• Адам Фишер • Молли Фишер • Хизер Реймонд • Иван • Марта • Ной
+
+🔖 #ПортоИнверно #Персонажи #Банды`;
     }
 
     return '';
   }
 
   function updateTgPreview() {
-    const rawText = getGeneratedTelegramPost();
-    // Simple HTML formatter for preview
-    let previewHtml = rawText
+    const raw = getGeneratedTelegramPost();
+    let previewHtml = raw
       .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
       .replace(/\*([^*]+)\*/g, '<i>$1</i>')
       .replace(/^>\s+(.+)$/gm, '<blockquote>$1</blockquote>')
@@ -487,20 +617,20 @@ document.addEventListener('DOMContentLoaded', () => {
     copyToClipboard(post, 'Пост скопирован для Telegram!');
   });
 
-  // ----------------------------------------------------
   // Reading Progress Bar
-  // ----------------------------------------------------
   window.addEventListener('scroll', () => {
-    const scrollTotal = document.documentElement.scrollHeight - window.innerHeight;
-    const progress = scrollTotal > 0 ? (window.scrollY / scrollTotal) * 100 : 0;
+    const total = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = total > 0 ? (window.scrollY / total) * 100 : 0;
     readingProgressBar.style.width = `${progress}%`;
   });
 
-  // Initial Boot
+  // Initial Load
   renderChapterList();
   if (data.summaries.length > 0) {
     loadChapter(currentChapterIndex);
   }
   renderCharacters();
+  updateFeedbackPreview();
+  loadLocalFeedback();
   updateTgPreview();
 });
