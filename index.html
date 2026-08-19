@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Хроники Порто-Инверно | Читальный зал и База Знаний</title>
+  
+  <!-- Google Fonts: Cinzel for Noir headers, Lora for literature reading, Inter for UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-noir">
+
+  <!-- Background Ambience Effect -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="fog-overlay"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">1931</div>
+      <div class="title-group">
+        <h1 class="logo-title">PORTO INVERNO</h1>
+        <span class="logo-subtitle">Хроники, Досье и Архив Кампании</span>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" id="navTabs">
+      <button class="nav-btn active" data-tab="chapters">
+        <span class="btn-icon">📖</span> Хроники сессий
+        <span class="badge-count" id="chaptersCount">0</span>
+      </button>
+      <button class="nav-btn" data-tab="characters">
+        <span class="btn-icon">👤</span> Досье персонажей
+        <span class="badge-count" id="charactersCount">0</span>
+      </button>
+      <button class="nav-btn" data-tab="telegram">
+        <span class="btn-icon">📱</span> Для Telegram
+      </button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-right">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="globalSearch" placeholder="Поиск по главам, именам, уликам..." autocomplete="off">
+        <button id="clearSearch" class="clear-btn" style="display: none;">✕</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Reading Progress Bar -->
+  <div class="reading-progress-bar" id="readingProgress"></div>
+
+  <!-- Main Content Layout -->
+  <main class="app-main">
+
+    <!-- ================= CHAPTERS TAB ================= -->
+    <section class="tab-pane active" id="tab-chapters">
+      <div class="chapters-layout">
+        
+        <!-- Left Sidebar: Chapter List & Filters -->
+        <aside class="chapters-sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-title">Сюжетные ветки</span>
+            <div class="filter-pills" id="storylineFilters">
+              <button class="pill-btn active" data-filter="all">Все</button>
+              <button class="pill-btn" data-filter="Молли и Хизер">Молли & Хизер</button>
+              <button class="pill-btn" data-filter="Эйден и Малкольм">Эйден & Малкольм</button>
+              <button class="pill-btn" data-filter="Соло">Соло</button>
+            </div>
+          </div>
+
+          <div class="chapter-list-scroll" id="chapterListContainer">
+            <!-- Dynamically populated via JS -->
+          </div>
+        </aside>
+
+        <!-- Right Content: Chapter Reader -->
+        <article class="chapter-reader-view" id="readerView">
+          <div class="reader-toolbar">
+            <div class="reader-meta">
+              <span class="storyline-tag" id="readerStoryline">Ветка</span>
+              <span class="date-tag" id="readerDate">Дата</span>
+              <span class="read-time" id="readerReadTime">~3 мин чтения</span>
+            </div>
+
+            <div class="reader-actions">
+              <button class="action-btn" id="btnCopyTelegram" title="Скопировать отформатированный текст для Telegram">
+                <span class="btn-icon">📋</span> В Telegram
+              </button>
+              <div class="font-resizer">
+                <button class="font-btn" id="btnFontDown" title="Уменьшить шрифт">A-</button>
+                <button class="font-btn" id="btnFontUp" title="Увеличить шрифт">A+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="reader-article-header">
+            <h2 class="reader-title" id="readerTitle">Выберите главу</h2>
+            <div class="reader-divider"></div>
+          </div>
+
+          <div class="reader-body" id="readerBody">
+            <div class="empty-state">
+              <p>Загрузка хроник...</p>
+            </div>
+          </div>
+
+          <!-- Reader Navigation Footer -->
+          <footer class="reader-footer">
+            <button class="nav-page-btn prev" id="btnPrevChapter">
+              <span class="arrow">←</span> Предыдущая глава
+            </button>
+            <button class="nav-page-btn next" id="btnNextChapter">
+              Следующая глава <span class="arrow">→</span>
+            </button>
+          </footer>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ================= CHARACTERS TAB ================= -->
+    <section class="tab-pane" id="tab-characters">
+      <div class="characters-container">
+        
+        <!-- Filter Controls -->
+        <div class="characters-filter-bar">
+          <div class="filter-group">
+            <span class="filter-label">Статус:</span>
+            <div class="filter-pills" id="charStatusFilters">
+              <button class="pill-btn active" data-status="all">Все</button>
+              <button class="pill-btn" data-status="Жив">Живы</button>
+              <button class="pill-btn" data-status="Погиб">Погибли</button>
+              <button class="pill-btn" data-status="В бегах">В бегах</button>
+              <button class="pill-btn" data-status="Ранен">Ранены</button>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Фракция:</span>
+            <div class="filter-pills" id="charFactionFilters">
+              <button class="pill-btn active" data-faction="all">Все фракции</button>
+              <button class="pill-btn" data-faction="Синдикат Фишера">Синдикат Фишера</button>
+              <button class="pill-btn" data-faction="Команда Крауча">Команда Крауча</button>
+              <button class="pill-btn" data-faction="Синдикат Винсента">Синдикат Винсента</button>
+              <button class="pill-btn" data-faction="Картель Эль Гринго">Эль Гринго</button>
+              <button class="pill-btn" data-faction="Мэрия и Власть">Мэрия</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Character Cards Grid -->
+        <div class="character-grid" id="characterGrid">
+          <!-- Dynamically populated via JS -->
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= TELEGRAM FORMATTER TAB ================= -->
+    <section class="tab-pane" id="tab-telegram">
+      <div class="telegram-hub-container">
+        
+        <div class="telegram-intro-card">
+          <div class="intro-badge">Telegram Hub</div>
+          <h2>Готовые посты и навигация для каналов и чатов</h2>
+          <p>Все тексты предварительно отформатированы с поддержкой цитат, эмодзи-плашек и хэштегов. Нажмите <b>«Скопировать»</b> и вставьте прямо в диалог или канал.</p>
+        </div>
+
+        <div class="telegram-tools-grid">
+          
+          <!-- Post Selector & Controls -->
+          <div class="telegram-picker-card">
+            <h3>Выберите материал:</h3>
+            <div class="picker-group">
+              <label>Тип контента:</label>
+              <select id="tgContentType">
+                <option value="navigator">📌 Главный навигационный пост (для закрепа)</option>
+                <option value="latest">⚡ Саммари последней сессии (ч. 11)</option>
+                <option value="chapter">📖 Любая глава из архива</option>
+                <option value="characters_summary">👤 Сводка по персонажам</option>
+              </select>
+            </div>
+
+            <div class="picker-group" id="tgChapterSelectGroup" style="display: none;">
+              <label>Выберите главу:</label>
+              <select id="tgChapterSelect"></select>
+            </div>
+
+            <button class="btn-primary" id="btnCopyActiveTg">
+              📋 Скопировать готовый пост для Telegram
+            </button>
+          </div>
+
+          <!-- Live Telegram Message Mockup Preview -->
+          <div class="telegram-preview-wrapper">
+            <div class="tg-phone-frame">
+              <div class="tg-chat-header">
+                <div class="tg-avatar">🍸</div>
+                <div class="tg-chat-info">
+                  <div class="tg-chat-name">Хроники Порто-Инверно</div>
+                  <div class="tg-chat-status">канал • 1931 год</div>
+                </div>
+              </div>
+
+              <div class="tg-chat-body">
+                <div class="tg-message-bubble">
+                  <div class="tg-message-content" id="tgPreviewContent">
+                    Загрузка предпросмотра...
+                  </div>
+                  <div class="tg-message-time">19:31 ✓✓</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Character Detail Modal -->
+  <div class="modal-backdrop" id="charModal" style="display: none;">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="modalClose">✕</button>
+      <div class="modal-header">
+        <div class="modal-badge-row">
+          <span class="status-badge" id="modalStatus">Статус</span>
+          <span class="faction-badge" id="modalFaction">Фракция</span>
+        </div>
+        <h2 class="modal-name" id="modalName">Имя Персонажа</h2>
+        <div class="modal-role" id="modalRole">Специализация</div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-section">
+          <h4>Характер, факты и предыстория:</h4>
+          <p id="modalBio"></p>
+        </div>
+        <div class="modal-section" id="modalRelationsSection">
+          <h4>Связи и сюжетные ветки:</h4>
+          <p id="modalRelations"></p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="modalCopyTgBtn">📋 Скопировать досье для Telegram</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notification" id="toast">Текст скопирован!</div>
+
+  <!-- Load bundled data and app logic -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
