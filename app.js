@@ -7,7 +7,7 @@
   'use strict';
 
   // Master Data Store
-  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [] };
+  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], quotes: [] };
 
   // Application State
   const AppState = {
@@ -17,8 +17,12 @@
       transcriptStoryline: 'all',
       feedbackChar: 'all',
       charStatus: 'all',
-      charFaction: 'all'
+      charFaction: 'all',
+      quotesStoryline: 'all',
+      quotesAuthor: 'all',
+      quotesCategory: 'all'
     },
+    quotesSelectedSession: null,
     searchQuery: '',
     transcriptQuery: '',
     reader: {
@@ -49,12 +53,26 @@
     transcriptsCount: document.getElementById('transcriptsCount'),
     feedbacksCount: document.getElementById('feedbacksCount'),
     charsCount: document.getElementById('charsCount'),
+    quotesCount: document.getElementById('quotesCount'),
 
     // Grids
     gamesGrid: document.getElementById('gamesGrid'),
     transcriptsGrid: document.getElementById('transcriptsGrid'),
     feedbacksGrid: document.getElementById('feedbacksGrid'),
     charactersGrid: document.getElementById('charactersGrid'),
+
+    // Quotes Controls and Views
+    quotesGrid: document.getElementById('quotesGamesView'),
+    quotesDetailView: document.getElementById('quotesDetailView'),
+    quoteDetailTitle: document.getElementById('quoteDetailTitle'),
+    quoteDetailBranch: document.getElementById('quoteDetailBranch'),
+    quoteDetailDate: document.getElementById('quoteDetailDate'),
+    quoteDetailTotal: document.getElementById('quoteDetailTotal'),
+    quotesDetailSections: document.getElementById('quotesDetailSections'),
+    quotesBtnBack: document.getElementById('quotesBtnBack'),
+    quotesStorylineControls: document.getElementById('quotesStorylineControls'),
+    quotesAuthorControls: document.getElementById('quotesAuthorControls'),
+    quotesCategoryControls: document.getElementById('quotesCategoryControls'),
 
     // Segmented Controls
     storylineControls: document.getElementById('storylineControls'),
@@ -221,6 +239,7 @@
         // Re-render corresponding grid
         if (tabKey === 'games') Grids.renderGames();
         else if (tabKey === 'transcripts') Grids.renderTranscripts();
+        else if (tabKey === 'quotes') Grids.renderQuotes();
         else if (tabKey === 'player-notes') Grids.renderFeedbacks();
         else if (tabKey === 'characters') Grids.renderCharacters();
 
@@ -328,6 +347,205 @@
           onClick: () => UnifiedReader.open('transcript', idx, true)
         });
       });
+    },
+
+    renderQuotes() {
+      if (!DOM.quotesGrid) return;
+
+      const query = AppState.searchQuery;
+      const sFilter = AppState.filters.quotesStoryline;
+      const aFilter = AppState.filters.quotesAuthor;
+      const cFilter = AppState.filters.quotesCategory;
+
+      if (AppState.quotesSelectedSession) {
+        // Detailed View of single session quotes
+        if (DOM.quotesGrid) DOM.quotesGrid.style.display = 'none';
+        if (DOM.quotesDetailView) DOM.quotesDetailView.style.display = 'block';
+
+        const session = (DataStore.quotes || []).find(q => q.id === AppState.quotesSelectedSession);
+        if (!session) {
+          AppState.quotesSelectedSession = null;
+          Grids.renderQuotes();
+          return;
+        }
+
+        if (DOM.quoteDetailTitle) DOM.quoteDetailTitle.textContent = session.title;
+        if (DOM.quoteDetailBranch) {
+          DOM.quoteDetailBranch.textContent = session.category;
+          DOM.quoteDetailBranch.className = 'badge-tag ' + Utils.getBranchClass(session.category);
+        }
+        if (DOM.quoteDetailDate) DOM.quoteDetailDate.textContent = '📅 ' + session.gameDate;
+        if (DOM.quoteDetailTotal) DOM.quoteDetailTotal.textContent = '💬 ' + session.totalQuotesCount + ' цитат';
+
+        if (DOM.quotesDetailSections) {
+          DOM.quotesDetailSections.innerHTML = '';
+
+          let totalRendered = 0;
+
+          session.sections.forEach(sec => {
+            const matchCategory = cFilter === 'all' || sec.category === cFilter;
+            if (!matchCategory) return;
+
+            const filteredItems = sec.items.filter(item => {
+              const matchAuthor = aFilter === 'all' || item.playerKey === aFilter;
+              const matchSearch = !query || 
+                item.text.toLowerCase().includes(query) || 
+                item.authorRaw.toLowerCase().includes(query) || 
+                (item.context && item.context.toLowerCase().includes(query));
+              return matchAuthor && matchSearch;
+            });
+
+            if (filteredItems.length === 0) return;
+            totalRendered += filteredItems.length;
+
+            const block = document.createElement('div');
+            block.className = 'quotes-category-block';
+            block.innerHTML = `
+              <h3 class="quotes-category-title">
+                <span>${sec.icon}</span>
+                <span>${Utils.escapeHtml(sec.category)}</span>
+                <span class="quotes-category-count">${filteredItems.length}</span>
+              </h3>
+              <div class="quotes-list"></div>
+            `;
+
+            const listEl = block.querySelector('.quotes-list');
+            filteredItems.forEach(item => {
+              const card = document.createElement('div');
+              card.className = 'quote-card';
+              
+              let contextHtml = '';
+              if (item.context) {
+                contextHtml = `<div class="quote-context"><strong>Контекст:</strong> ${Utils.escapeHtml(item.context)}</div>`;
+              }
+
+              card.innerHTML = `
+                <div>
+                  <div class="quote-card-header">
+                    <div class="quote-author-info">
+                      <div class="quote-avatar ${item.badgeClass}">${item.avatarChar}</div>
+                      <div>
+                        <div class="quote-author-name">${Utils.escapeHtml(item.authorRaw)}</div>
+                        <div class="quote-author-role">${item.authorType === 'gm' ? 'Мастер игры' : 'Игрок'}</div>
+                      </div>
+                    </div>
+                    <span class="badge-tag ${item.badgeClass}">${Utils.escapeHtml(item.playerKey)}</span>
+                  </div>
+                  <div class="quote-body">«${Utils.escapeHtml(item.text)}»</div>
+                  ${contextHtml}
+                </div>
+                <div class="quote-footer-actions">
+                  <button class="btn-quote-action btn-copy-quote">📋 Скопировать</button>
+                  <button class="btn-quote-action btn-find-transcript">📜 В стенограмму</button>
+                </div>
+              `;
+
+              // Copy button
+              card.querySelector('.btn-copy-quote').addEventListener('click', (e) => {
+                e.stopPropagation();
+                const shareText = `«${item.text}»\n— ${item.authorRaw}\n[Порто-Инверно 1931 • ${session.title}]`;
+                navigator.clipboard.writeText(shareText).then(() => {
+                  Utils.showToast('✓ Цитата скопирована для Telegram');
+                }).catch(() => {
+                  Utils.showToast('✓ Цитата скопирована');
+                });
+              });
+
+              // Find in transcript button
+              card.querySelector('.btn-find-transcript').addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tIdx = DataStore.transcripts.findIndex(t => t.id === session.id);
+                if (tIdx !== -1) {
+                  UnifiedReader.open('transcript', tIdx, true);
+                  if (DOM.readerFilterInput) {
+                    const searchSnippet = item.text.slice(0, 30);
+                    DOM.readerFilterInput.value = searchSnippet;
+                    DOM.readerFilterInput.dispatchEvent(new Event('input'));
+                  }
+                } else {
+                  Utils.showToast('Стенограмма сессии не найдена');
+                }
+              });
+
+              listEl.appendChild(card);
+            });
+
+            DOM.quotesDetailSections.appendChild(block);
+          });
+
+          if (totalRendered === 0) {
+            DOM.quotesDetailSections.innerHTML = '<div style="padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">В этой игре нет цитат по выбранным фильтрам</div>';
+          }
+        }
+
+      } else {
+        // Grid View of all sessions with quotes
+        if (DOM.quotesDetailView) DOM.quotesDetailView.style.display = 'none';
+        if (DOM.quotesGrid) DOM.quotesGrid.style.display = 'grid';
+        DOM.quotesGrid.innerHTML = '';
+
+        const quotesData = DataStore.quotes || [];
+
+        const items = quotesData.filter(session => {
+          const matchFilter = sFilter === 'all' || 
+            (sFilter === 'Соло' ? session.category.includes('Соло') : (session.branch === sFilter || session.category === sFilter));
+          
+          let hasMatchingQuotes = false;
+          session.sections.forEach(sec => {
+            if (cFilter !== 'all' && sec.category !== cFilter) return;
+            sec.items.forEach(item => {
+              if (aFilter !== 'all' && item.playerKey !== aFilter) return;
+              if (query && !item.text.toLowerCase().includes(query) && !item.authorRaw.toLowerCase().includes(query) && (!item.context || !item.context.toLowerCase().includes(query))) return;
+              hasMatchingQuotes = true;
+            });
+          });
+
+          const matchSessionTitle = !query || session.title.toLowerCase().includes(query) || session.gameDate.toLowerCase().includes(query);
+
+          return matchFilter && (hasMatchingQuotes || (!aFilter && !cFilter && matchSessionTitle));
+        });
+
+        if (items.length === 0) {
+          DOM.quotesGrid.innerHTML = '<div style="grid-column:1/-1; padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Цитаты не найдены. Попробуйте изменить фильтр или поисковый запрос.</div>';
+          return;
+        }
+
+        items.forEach(session => {
+          const card = document.createElement('div');
+          card.className = 'app-card';
+
+          const categoryPills = session.sections.map(s => {
+            return `<span class="badge-tag" style="background: var(--bg-input);">${s.icon} ${s.items.length}</span>`;
+          }).join(' ');
+
+          card.innerHTML = `
+            <div>
+              <div class="card-meta-row">
+                <span class="date-pill">📅 ${session.gameDate}</span>
+                <span class="badge-tag ${Utils.getBranchClass(session.category)}">${session.category}</span>
+              </div>
+              <h3 class="card-title">${session.title}</h3>
+              <p class="card-thesis" style="margin-bottom: 0.75rem;">Сборник ярких цитат, диалогов и решений эпизода.</p>
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                ${categoryPills}
+              </div>
+            </div>
+            <div class="card-footer-row">
+              <span class="card-subtitle">💬 Всего цитат: ${session.totalQuotesCount}</span>
+              <span class="card-action-link">Открыть цитатник →</span>
+            </div>
+          `;
+
+          card.addEventListener('click', () => {
+            AppState.quotesSelectedSession = session.id;
+            history.pushState({ view: 'quotes-detail', sessionId: session.id }, '', '#quotes:' + session.id);
+            Grids.renderQuotes();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+
+          DOM.quotesGrid.appendChild(card);
+        });
+      }
     },
 
     renderFeedbacks() {
@@ -784,7 +1002,7 @@
         if (e.target.classList.contains('segment-btn')) {
           container.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
           e.target.classList.add('active');
-          AppState.filters[filterKey] = e.target.getAttribute('data-filter') || e.target.getAttribute('data-char') || e.target.getAttribute('data-status') || e.target.getAttribute('data-faction');
+          AppState.filters[filterKey] = e.target.getAttribute('data-filter') || e.target.getAttribute('data-char') || e.target.getAttribute('data-status') || e.target.getAttribute('data-faction') || e.target.getAttribute('data-author') || e.target.getAttribute('data-category');
           renderFn();
         }
       });
@@ -795,6 +1013,20 @@
     setupSegmented(DOM.feedbackCharControls, 'feedbackChar', Grids.renderFeedbacks);
     setupSegmented(DOM.statusControls, 'charStatus', Grids.renderCharacters);
     setupSegmented(DOM.factionControls, 'charFaction', Grids.renderCharacters);
+    setupSegmented(DOM.quotesStorylineControls, 'quotesStoryline', Grids.renderQuotes);
+    setupSegmented(DOM.quotesAuthorControls, 'quotesAuthor', Grids.renderQuotes);
+    setupSegmented(DOM.quotesCategoryControls, 'quotesCategory', Grids.renderQuotes);
+
+    // Quotes Back Button
+    if (DOM.quotesBtnBack) {
+      DOM.quotesBtnBack.addEventListener('click', (e) => {
+        e.preventDefault();
+        AppState.quotesSelectedSession = null;
+        history.pushState({ view: 'tab', tab: 'quotes' }, '', '#quotes');
+        Grids.renderQuotes();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
 
     // Modal
     DOM.modalClose.addEventListener('click', () => CharactersModal.close(true));
@@ -833,7 +1065,11 @@
 
       if (e.state && e.state.view) {
         if (e.state.view === 'tab') {
+          if (e.state.tab === 'quotes') AppState.quotesSelectedSession = null;
           Navigation.switchTab(e.state.tab, false);
+        } else if (e.state.view === 'quotes-detail') {
+          AppState.quotesSelectedSession = e.state.sessionId;
+          Navigation.switchTab('quotes', false);
         } else if (e.state.view === 'reader') {
           UnifiedReader.open(e.state.docType, e.state.index, false);
         } else if (e.state.view === 'modal') {
@@ -847,7 +1083,11 @@
   }
 
   function restoreFromHash(hash) {
-    if (hash.startsWith('reader:')) {
+    if (hash.startsWith('quotes:')) {
+      const sessionId = decodeURIComponent(hash.replace('quotes:', ''));
+      AppState.quotesSelectedSession = sessionId;
+      Navigation.switchTab('quotes', false);
+    } else if (hash.startsWith('reader:')) {
       const parts = hash.split(':');
       const docType = parts[1];
       const idx = parseInt(parts[2] || '0', 10);
@@ -861,7 +1101,8 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'player-notes', 'characters'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'player-notes', 'characters'].includes(hash)) {
+      if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
       Navigation.switchTab('games', false);
@@ -873,6 +1114,10 @@
   if (DOM.transcriptsCount) DOM.transcriptsCount.textContent = DataStore.transcripts.length;
   if (DOM.feedbacksCount) DOM.feedbacksCount.textContent = DataStore.feedbacks.length;
   if (DOM.charsCount) DOM.charsCount.textContent = DataStore.characters.length;
+  if (DOM.quotesCount) {
+    const totalQuotesAll = (DataStore.quotes || []).reduce((sum, q) => sum + (q.totalQuotesCount || 0), 0);
+    DOM.quotesCount.textContent = totalQuotesAll;
+  }
 
   // Initialize
   initEvents();
