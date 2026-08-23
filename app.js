@@ -1,49 +1,85 @@
-/**
- * ПОРТО-ИНВЕРНО - Логика читального зала
- */
 
-document.addEventListener('DOMContentLoaded', () => {
-  const data = window.PORTO_DATA || { summaries: [], characters: [] };
+window.onload = function() {
+  const data = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [] };
 
-  // State
   let activeTab = 'games';
   let activeStoryline = 'all';
+  let activeTranscriptStoryline = 'all';
   let activeCharStatus = 'all';
   let activeCharFaction = 'all';
+  let activeFeedbackChar = 'Хизер';
   let currentReaderIndex = -1;
+  let currentTranscriptIndex = -1;
   let searchQuery = '';
+  let transcriptSearchQuery = '';
 
   // Elements
-  const navItems = document.querySelectorAll('.nav-item');
+  const navLinks = document.querySelectorAll('.nav-link');
   const viewPanels = document.querySelectorAll('.view-panel');
   const viewGames = document.getElementById('view-games');
   const viewReader = document.getElementById('view-reader');
+  const viewTranscripts = document.getElementById('view-transcripts');
+  const viewTranscriptReader = document.getElementById('view-transcript-reader');
   const viewCharacters = document.getElementById('view-characters');
-  const viewPlayerNotes = document.getElementById('view-player-notes');
+  const viewNotes = document.getElementById('view-player-notes');
 
   const gamesCountEl = document.getElementById('gamesCount');
+  const transcriptsCountEl = document.getElementById('transcriptsCount');
   const charsCountEl = document.getElementById('charsCount');
+  const feedbacksCountEl = document.getElementById('feedbacksCount');
   const appSearch = document.getElementById('appSearch');
+  const sidebar = document.getElementById('appSidebar');
+  const mobileToggle = document.getElementById('mobileToggle');
 
-  // Games
+  // Games View Elements
   const gamesGrid = document.getElementById('gamesGrid');
-  const storylineChips = document.getElementById('storylineChips');
+  const storylineControls = document.getElementById('storylineControls');
 
-  // Reader
+  // Reader View Elements
   const btnBackToGames = document.getElementById('btnBackToGames');
-  const btnBackToGamesBottom = document.getElementById('btnBackToGamesBottom');
+  const btnBackBottom = document.getElementById('btnBackBottom');
+  const btnOpenTranscript = document.getElementById('btnOpenTranscript');
   const readerCategory = document.getElementById('readerCategory');
   const readerDate = document.getElementById('readerDate');
+  const readerRealDate = document.getElementById('readerRealDate');
+  const readerReadTime = document.getElementById('readerReadTime');
   const readerTitle = document.getElementById('readerTitle');
   const readerThesis = document.getElementById('readerThesis');
   const readerBody = document.getElementById('readerBody');
   const btnPrevGame = document.getElementById('btnPrevGame');
   const btnNextGame = document.getElementById('btnNextGame');
+  const btnFontSerif = document.getElementById('btnFontSerif');
+  const btnFontSans = document.getElementById('btnFontSans');
+  const btnSizeMinus = document.getElementById('btnSizeMinus');
+  const btnSizePlus = document.getElementById('btnSizePlus');
+  const btnCopyChapter = document.getElementById('btnCopyChapter');
+  const progressBar = document.getElementById('readingProgress');
 
-  // Characters
+  // Transcripts View Elements
+  const transcriptsGrid = document.getElementById('transcriptsGrid');
+  const transcriptStorylineControls = document.getElementById('transcriptStorylineControls');
+  const btnBackToTranscripts = document.getElementById('btnBackToTranscripts');
+  const btnBackToTranscriptsBottom = document.getElementById('btnBackToTranscriptsBottom');
+  const btnOpenSummaryFromTranscript = document.getElementById('btnOpenSummaryFromTranscript');
+  const btnCopyFullTranscript = document.getElementById('btnCopyFullTranscript');
+  const transcriptTitle = document.getElementById('transcriptTitle');
+  const transcriptMetaDate = document.getElementById('transcriptMetaDate');
+  const transcriptMetaLines = document.getElementById('transcriptMetaLines');
+  const transcriptMetaSize = document.getElementById('transcriptMetaSize');
+  const transcriptBody = document.getElementById('transcriptBody');
+  const transcriptSearchInput = document.getElementById('transcriptSearchInput');
+
+  // Feedback View Elements
+  const feedbackCharControls = document.getElementById('feedbackCharControls');
+  const feedbackBanner = document.getElementById('feedbackBanner');
+  const feedbackList = document.getElementById('feedbackList');
+
+  // Characters View Elements
   const charactersGrid = document.getElementById('charactersGrid');
-  const charStatusChips = document.getElementById('charStatusChips');
-  const charFactionChips = document.getElementById('charFactionChips');
+  const statusControls = document.getElementById('statusControls');
+  const factionControls = document.getElementById('factionControls');
+
+  // Modal Elements
   const charModal = document.getElementById('charModal');
   const modalClose = document.getElementById('modalClose');
   const modalAvatar = document.getElementById('modalAvatar');
@@ -52,16 +88,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalStatus = document.getElementById('modalStatus');
   const modalFaction = document.getElementById('modalFaction');
   const modalBio = document.getElementById('modalBio');
-  const modalRelations = document.getElementById('modalRelations');
   const modalRelationsWrap = document.getElementById('modalRelationsWrap');
+  const modalRelationsList = document.getElementById('modalRelationsList');
 
-  // Initialize Counts
-  gamesCountEl.textContent = data.summaries.length;
-  charsCountEl.textContent = data.characters.length;
+  // Theme Elements
+  const themeBtns = document.querySelectorAll('.theme-btn');
+  const toast = document.getElementById('appToast');
 
-  // ----------------------------------------------------
-  // Markdown parser
-  // ----------------------------------------------------
+  // Update Badges
+  if (gamesCountEl) gamesCountEl.textContent = data.summaries ? data.summaries.length : 25;
+  if (transcriptsCountEl) transcriptsCountEl.textContent = data.transcripts ? data.transcripts.length : 25;
+  if (charsCountEl) charsCountEl.textContent = data.characters ? data.characters.length : 59;
+  if (feedbacksCountEl) feedbacksCountEl.textContent = data.feedbacks ? data.feedbacks.length : 41;
+
+  // Reading progress tracking
+  window.addEventListener('scroll', () => {
+    if (activeTab === 'reader' || activeTab === 'transcript-reader') {
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const scrolled = (window.scrollY / (docHeight || 1)) * 100;
+      if (progressBar) progressBar.style.width = Math.min(100, Math.max(0, scrolled)) + '%';
+    }
+  });
+
+  // Markdown Parser
   function parseMarkdown(md) {
     if (!md) return '';
     let text = md.replace(/^#\s+[^\n]+\n+/, '');
@@ -70,80 +119,138 @@ document.addEventListener('DOMContentLoaded', () => {
       let t = p.trim();
       if (!t) return '';
       if (t.startsWith('> ')) {
-        return `<blockquote>${formatInline(t.replace(/^>\s+/, ''))}</blockquote>`;
+        return '<blockquote>' + formatInline(t.replace(/^>\s+/, '')) + '</blockquote>';
       }
       if (t.startsWith('## ') || t.startsWith('### ')) {
-        return `<h3>${formatInline(t.replace(/^#+\s+/, ''))}</h3>`;
+        return '<h3 style="font-size: 1.3rem; margin: 1.8rem 0 0.8rem 0; font-weight: 600; color: var(--text-primary);">' + formatInline(t.replace(/^#+\s+/, '')) + '</h3>';
       }
-      return `<p>${formatInline(t)}</p>`;
+      return '<p>' + formatInline(t) + '</p>';
     }).join('');
   }
 
   function formatInline(str) {
+    const codeRegex = new RegExp(String.fromCharCode(96) + '([^' + String.fromCharCode(96) + ']+)' + String.fromCharCode(96), 'g');
     return str
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
+      .replace(codeRegex, '<code style="background: var(--bg-input); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em;">$1</code>');
   }
 
-  // ----------------------------------------------------
-  // Sidebar Navigation
-  // ----------------------------------------------------
-  navItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const target = item.getAttribute('data-tab');
-      switchTab(target);
+  // Navigation Logic
+  navLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      const tab = link.getAttribute('data-tab');
+      switchTab(tab);
+      if (window.innerWidth <= 900 && sidebar) sidebar.classList.remove('open');
     });
   });
 
   function switchTab(tabKey) {
     activeTab = tabKey;
-    navItems.forEach(item => {
-      item.classList.toggle('active', item.getAttribute('data-tab') === tabKey);
+    navLinks.forEach(link => {
+      link.classList.toggle('active', link.getAttribute('data-tab') === tabKey);
     });
 
-    viewPanels.forEach(p => p.style.display = 'none');
+    viewPanels.forEach(p => p.classList.remove('active'));
 
     if (tabKey === 'games') {
-      viewGames.style.display = 'block';
+      viewGames.classList.add('active');
+    } else if (tabKey === 'reader') {
+      viewReader.classList.add('active');
+    } else if (tabKey === 'transcripts') {
+      viewTranscripts.classList.add('active');
+      renderTranscriptsGrid();
+    } else if (tabKey === 'transcript-reader') {
+      viewTranscriptReader.classList.add('active');
     } else if (tabKey === 'characters') {
-      viewCharacters.style.display = 'block';
+      viewCharacters.classList.add('active');
+      renderCharacters();
     } else if (tabKey === 'player-notes') {
-      viewPlayerNotes.style.display = 'block';
+      viewNotes.classList.add('active');
+      renderFeedbackList();
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ----------------------------------------------------
-  // Search
-  // ----------------------------------------------------
-  appSearch.addEventListener('input', (e) => {
-    searchQuery = e.target.value.toLowerCase().trim();
-    if (activeTab === 'games') {
-      renderGamesGrid();
-    } else if (activeTab === 'characters') {
-      renderCharacters();
-    }
+  // Search Logic
+  if (appSearch) {
+    appSearch.addEventListener('input', (e) => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      if (activeTab === 'games' || activeTab === 'reader') {
+        if (activeTab === 'reader') switchTab('games');
+        renderGamesGrid();
+      } else if (activeTab === 'transcripts' || activeTab === 'transcript-reader') {
+        if (activeTab === 'transcript-reader') switchTab('transcripts');
+        renderTranscriptsGrid();
+      } else if (activeTab === 'characters') {
+        renderCharacters();
+      } else if (activeTab === 'player-notes') {
+        renderFeedbackList();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        appSearch.focus();
+      } else if (e.key === 'Escape') {
+        if (charModal && charModal.style.display === 'flex') {
+          charModal.style.display = 'none';
+        }
+      }
+    });
+  }
+
+  // Mobile Toggle
+  if (mobileToggle && sidebar) {
+    mobileToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+    });
+  }
+
+  // Theme Switcher
+  themeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = btn.getAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', theme);
+      themeBtns.forEach(b => b.classList.toggle('active', b === btn));
+      localStorage.setItem('porto_theme', theme);
+    });
   });
 
-  // ----------------------------------------------------
+  const savedTheme = localStorage.getItem('porto_theme') || 'dark';
+  if (savedTheme !== 'dark') {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    themeBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-theme') === savedTheme));
+  }
+
+  function matchStoryFilter(filter, category, branch) {
+    if (filter === 'all') return true;
+    if (filter === 'Соло') {
+      return (category && category.toLowerCase().includes('соло')) || (branch && branch.toLowerCase().includes('соло'));
+    }
+    return branch === filter || category === filter;
+  }
+
   // Render Games Grid
-  // ----------------------------------------------------
   function renderGamesGrid() {
+    if (!gamesGrid) return;
     gamesGrid.innerHTML = '';
 
     const filtered = data.summaries.filter(item => {
-      const matchStoryline = activeStoryline === 'all' || item.category === activeStoryline;
+      const matchStoryline = matchStoryFilter(activeStoryline, item.category, item.branch);
       const matchSearch = !searchQuery || 
         item.title.toLowerCase().includes(searchQuery) || 
         item.thesis.toLowerCase().includes(searchQuery) ||
+        item.gameDate.toLowerCase().includes(searchQuery) ||
+        item.realDate.toLowerCase().includes(searchQuery) ||
         item.content.toLowerCase().includes(searchQuery);
       return matchStoryline && matchSearch;
     });
 
     if (filtered.length === 0) {
-      gamesGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 4rem; text-align: center; color: var(--text-muted);">Игры по заданным критериям не найдены</div>';
+      gamesGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 4rem 1rem; text-align: center; color: var(--text-tertiary);">Сессии по заданным критериям не найдены</div>';
       return;
     }
 
@@ -153,20 +260,21 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = 'game-card';
 
       let tagClass = 'tag-solo';
-      if (item.category === 'Молли и Хизер') tagClass = 'tag-molly';
-      else if (item.category === 'Эйден и Малкольм') tagClass = 'tag-aiden';
+      if (item.category.includes('Молли')) tagClass = 'tag-molly';
+      else if (item.category.includes('Эйден') || item.category.includes('Малкольм')) tagClass = 'tag-aiden';
 
       card.innerHTML = `
         <div>
-          <div class="game-card-meta">
-            <span class="game-date-badge">📅 ${item.date}</span>
-            <span class="game-tag ${tagClass}">${item.category}</span>
+          <div class="game-meta-row">
+            <span class="game-date-pill">📅 ${item.gameDate || item.date}</span>
+            <span class="game-branch-tag ${tagClass}">${item.category}</span>
           </div>
-          <h3 class="game-card-title">${item.title}</h3>
-          <p class="game-card-thesis">${item.thesis}</p>
+          <h3 class="game-title">${item.title}</h3>
+          <p class="game-thesis">${item.thesis}</p>
         </div>
-        <div class="game-card-action">
-          <span>Читать главу</span> →
+        <div class="game-footer-row">
+          <span class="game-real-date">🎮 Игра: ${item.realDate}</span>
+          <span class="game-action-link">Читать главу →</span>
         </div>
       `;
 
@@ -178,63 +286,427 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ----------------------------------------------------
-  // Open Chapter Reader
-  // ----------------------------------------------------
+  // Reader Open
   function openReader(index) {
     currentReaderIndex = index;
     const game = data.summaries[index];
     if (!game) return;
 
-    // Switch views
-    viewPanels.forEach(p => p.style.display = 'none');
-    viewReader.style.display = 'block';
+    switchTab('reader');
 
-    readerCategory.textContent = game.category;
-    readerDate.textContent = `📅 ${game.date}`;
-    readerTitle.textContent = game.title;
-    readerThesis.textContent = `«${game.thesis}»`;
-    readerBody.innerHTML = parseMarkdown(game.content);
+    let tagClass = 'tag-solo';
+    if (game.category.includes('Молли')) tagClass = 'tag-molly';
+    else if (game.category.includes('Эйден') || game.category.includes('Малкольм')) tagClass = 'tag-aiden';
 
-    btnPrevGame.disabled = index <= 0;
-    btnNextGame.disabled = index >= data.summaries.length - 1;
+    if (readerCategory) {
+      readerCategory.textContent = game.category;
+      readerCategory.className = 'game-branch-tag ' + tagClass;
+    }
+    if (readerDate) readerDate.textContent = '📅 ' + (game.gameDate || game.date);
+    if (readerRealDate) readerRealDate.textContent = '🎮 Дата сессии: ' + (game.realDate || '1931');
+    if (readerReadTime) readerReadTime.textContent = '⏳ ' + (game.readTime || '5 мин чтения');
+    if (readerTitle) readerTitle.textContent = game.title;
+    if (readerThesis) readerThesis.textContent = '«' + game.thesis + '»';
+    if (readerBody) readerBody.innerHTML = parseMarkdown(game.content);
+
+    if (btnPrevGame) btnPrevGame.disabled = index <= 0;
+    if (btnNextGame) btnNextGame.disabled = index >= data.summaries.length - 1;
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  window.openReader = openReader;
+
+  if (btnBackToGames) btnBackToGames.addEventListener('click', () => switchTab('games'));
+  if (btnBackBottom) btnBackBottom.addEventListener('click', () => switchTab('games'));
+
+  if (btnOpenTranscript) {
+    btnOpenTranscript.addEventListener('click', () => {
+      const game = data.summaries[currentReaderIndex];
+      if (game) {
+        const tIdx = data.transcripts.findIndex(t => t.id === game.id);
+        if (tIdx >= 0) openTranscriptReader(tIdx);
+        else showToast('Транскрибация для этой сессии не найдена');
+      }
+    });
+  }
+
+  if (btnPrevGame) {
+    btnPrevGame.addEventListener('click', () => {
+      if (currentReaderIndex > 0) openReader(currentReaderIndex - 1);
+    });
+  }
+
+  if (btnNextGame) {
+    btnNextGame.addEventListener('click', () => {
+      if (currentReaderIndex < data.summaries.length - 1) openReader(currentReaderIndex + 1);
+    });
+  }
+
+  // Reader Typography Controls
+  let currentReaderSize = 1.08;
+  if (btnFontSerif && btnFontSans) {
+    btnFontSerif.addEventListener('click', () => {
+      document.documentElement.style.setProperty('--font-reader', 'var(--font-serif)');
+      btnFontSerif.classList.add('active');
+      btnFontSans.classList.remove('active');
+    });
+    btnFontSans.addEventListener('click', () => {
+      document.documentElement.style.setProperty('--font-reader', 'var(--font-sans)');
+      btnFontSans.classList.add('active');
+      btnFontSerif.classList.remove('active');
+    });
+  }
+
+  if (btnSizePlus) {
+    btnSizePlus.addEventListener('click', () => {
+      if (currentReaderSize < 1.35) {
+        currentReaderSize += 0.06;
+        document.documentElement.style.setProperty('--reader-size', currentReaderSize + 'rem');
+      }
+    });
+  }
+
+  if (btnSizeMinus) {
+    btnSizeMinus.addEventListener('click', () => {
+      if (currentReaderSize > 0.9) {
+        currentReaderSize -= 0.06;
+        document.documentElement.style.setProperty('--reader-size', currentReaderSize + 'rem');
+      }
+    });
+  }
+
+  if (btnCopyChapter) {
+    btnCopyChapter.addEventListener('click', () => {
+      const game = data.summaries[currentReaderIndex];
+      if (game) {
+        navigator.clipboard.writeText(game.content).then(() => {
+          showToast('✓ Текст главы скопирован в буфер');
+        });
+      }
+    });
+  }
+
+  function showToast(msg) {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('visible');
+    setTimeout(() => {
+      toast.classList.remove('visible');
+    }, 2400);
+  }
+
+  if (storylineControls) {
+    storylineControls.addEventListener('click', (e) => {
+      if (e.target.classList.contains('segment-btn')) {
+        storylineControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        activeStoryline = e.target.getAttribute('data-filter');
+        renderGamesGrid();
+      }
+    });
+  }
+
+  // ================= TRANSCRIPTS LOGIC =================
+  function renderTranscriptsGrid() {
+    if (!transcriptsGrid) return;
+    transcriptsGrid.innerHTML = '';
+
+    const filtered = data.transcripts.filter(item => {
+      const matchStoryline = matchStoryFilter(activeTranscriptStoryline, item.category, item.branch);
+      const matchSearch = !searchQuery || 
+        item.title.toLowerCase().includes(searchQuery) || 
+        item.id.toLowerCase().includes(searchQuery) ||
+        item.gameDate.toLowerCase().includes(searchQuery) ||
+        item.realDate.toLowerCase().includes(searchQuery);
+      return matchStoryline && matchSearch;
+    });
+
+    if (filtered.length === 0) {
+      transcriptsGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 4rem 1rem; text-align: center; color: var(--text-tertiary);">Транскрибации не найдены</div>';
+      return;
+    }
+
+    filtered.forEach(item => {
+      const actualIdx = data.transcripts.findIndex(t => t.id === item.id);
+      const card = document.createElement('div');
+      card.className = 'transcript-card';
+
+      let tagClass = 'tag-solo';
+      if (item.category.includes('Молли')) tagClass = 'tag-molly';
+      else if (item.category.includes('Эйден') || item.category.includes('Малкольм')) tagClass = 'tag-aiden';
+
+      card.innerHTML = `
+        <div>
+          <div class="transcript-meta-row">
+            <span class="game-date-pill">📅 ${item.gameDate}</span>
+            <span class="game-branch-tag ${tagClass}">${item.category}</span>
+          </div>
+          <h3 class="transcript-title">${item.title}</h3>
+          <p class="transcript-info-line">📜 Файл: ${item.id}.txt</p>
+        </div>
+        <div class="transcript-footer">
+          <span>📊 ${item.linesCount} строк (${item.sizeKb})</span>
+          <span class="transcript-view-btn">Открыть стенограмму →</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        openTranscriptReader(actualIdx);
+      });
+
+      transcriptsGrid.appendChild(card);
+    });
+  }
+
+  function formatTranscript(text, filterQuery = '') {
+    if (!text) return '<p style="color: var(--text-tertiary);">Текст транскрибации пуст</p>';
+
+    const lines = text.split(/\r?\n/);
+    let html = '';
+    let currentSpeaker = '';
+    let currentEntryLines = [];
+    let isGM = false;
+
+    function flushEntry() {
+      if (currentEntryLines.length > 0) {
+        const cls = isGM ? 'speaker-gm' : 'speaker-player';
+        html += '<div class="transcript-entry ' + cls + '">';
+        if (currentSpeaker) {
+          html += '<div class="entry-speaker">🗣️ ' + escapeHtml(currentSpeaker) + '</div>';
+        }
+        currentEntryLines.forEach(l => {
+          let lineHtml = escapeHtml(l);
+          lineHtml = lineHtml.replace(/\[(\d{2}:\d{2}:\d{2})\]/g, '<span class="timestamp-pill">$1</span>');
+
+          if (filterQuery) {
+            const re = new RegExp('(' + escapeRegex(filterQuery) + ')', 'gi');
+            lineHtml = lineHtml.replace(re, '<span class="hl-match">$1</span>');
+          }
+
+          html += '<div class="entry-text-line">' + lineHtml + '</div>';
+        });
+        html += '</div>';
+        currentEntryLines = [];
+      }
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      if (line.endsWith(':') && !line.startsWith('[')) {
+        flushEntry();
+        currentSpeaker = line.replace(/:$/, '');
+        isGM = currentSpeaker.toLowerCase().includes('михаил') || currentSpeaker.toLowerCase().includes('мастер');
+      } else {
+        currentEntryLines.push(line);
+      }
+    }
+    flushEntry();
+
+    return html;
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function escapeRegex(str) {
+    return str.split('').map(function(c) {
+      if ('[]{}()*+?.,\^$|#'.indexOf(c) !== -1) return '\\' + c;
+      return c;
+    }).join('');
+  }
+
+  function openTranscriptReader(index) {
+    currentTranscriptIndex = index;
+    const t = data.transcripts[index];
+    if (!t) return;
+
+    switchTab('transcript-reader');
+
+    if (transcriptTitle) transcriptTitle.textContent = t.title + ' (' + t.id + ')';
+    if (transcriptMetaDate) transcriptMetaDate.textContent = '📅 ' + t.gameDate + ' (Сессия: ' + t.realDate + ')';
+    if (transcriptMetaLines) transcriptMetaLines.textContent = '📊 ' + t.linesCount + ' строк';
+    if (transcriptMetaSize) transcriptMetaSize.textContent = '💾 ' + t.sizeKb;
+
+    if (transcriptSearchInput) transcriptSearchInput.value = '';
+    transcriptSearchQuery = '';
+
+    if (transcriptBody) {
+      transcriptBody.innerHTML = formatTranscript(t.rawText);
+    }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  btnBackToGames.addEventListener('click', () => {
-    switchTab('games');
-  });
+  if (transcriptSearchInput) {
+    transcriptSearchInput.addEventListener('input', (e) => {
+      transcriptSearchQuery = e.target.value.trim();
+      const t = data.transcripts[currentTranscriptIndex];
+      if (t && transcriptBody) {
+        transcriptBody.innerHTML = formatTranscript(t.rawText, transcriptSearchQuery);
+      }
+    });
+  }
 
-  btnBackToGamesBottom.addEventListener('click', () => {
-    switchTab('games');
-  });
+  if (btnBackToTranscripts) btnBackToTranscripts.addEventListener('click', () => switchTab('transcripts'));
+  if (btnBackToTranscriptsBottom) btnBackToTranscriptsBottom.addEventListener('click', () => switchTab('transcripts'));
 
-  btnPrevGame.addEventListener('click', () => {
-    if (currentReaderIndex > 0) {
-      openReader(currentReaderIndex - 1);
+  if (btnOpenSummaryFromTranscript) {
+    btnOpenSummaryFromTranscript.addEventListener('click', () => {
+      const t = data.transcripts[currentTranscriptIndex];
+      if (t) {
+        const sIdx = data.summaries.findIndex(s => s.id === t.id);
+        if (sIdx >= 0) openReader(sIdx);
+        else showToast('Саммари для этой сессии не найдено');
+      }
+    });
+  }
+
+  if (btnCopyFullTranscript) {
+    btnCopyFullTranscript.addEventListener('click', () => {
+      const t = data.transcripts[currentTranscriptIndex];
+      if (t) {
+        navigator.clipboard.writeText(t.rawText).then(() => {
+          showToast('✓ Полный текст транскрибации скопирован!');
+        });
+      }
+    });
+  }
+
+  if (transcriptStorylineControls) {
+    transcriptStorylineControls.addEventListener('click', (e) => {
+      if (e.target.classList.contains('segment-btn')) {
+        transcriptStorylineControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        activeTranscriptStoryline = e.target.getAttribute('data-filter');
+        renderTranscriptsGrid();
+      }
+    });
+  }
+
+  // ================= FEEDBACK (ОС) LOGIC =================
+  const charHeaderBios = {
+    'Хизер': { name: 'Хизер Реймонд', role: 'Личный телохранитель Молли Фишер, бывший спецагент', avatarClass: 'avatar-heather', initial: 'Х' },
+    'Молли': { name: 'Молли Фишер', role: 'Наследница синдиката Фишеров, глава логистической сети', avatarClass: 'avatar-molly', initial: 'М' },
+    'Эйден': { name: 'Эйден Кроу', role: 'Бывший детектив полиции, ищущий свою семью в Порто-Инверно', avatarClass: 'avatar-aiden', initial: 'Э' },
+    'Грейвз': { name: 'Малкольм Грейвз', role: 'Ветеран Первой мировой войны, стрелок и штурмовик', avatarClass: 'avatar-graves', initial: 'Г' }
+  };
+
+  function renderFeedbackList() {
+    if (!feedbackList) return;
+    feedbackList.innerHTML = '';
+
+    if (feedbackBanner) {
+      if (activeFeedbackChar === 'all') {
+        feedbackBanner.innerHTML = `
+          <div class="feedback-banner-avatar" style="background: linear-gradient(135deg, #2c2c2e, #1c1c1e); color: #fff;">📝</div>
+          <div class="feedback-banner-info">
+            <h3>Сводный дневник обратной связи</h3>
+            <p>Все мысли, переживания, планы и гипотезы игроков после сессий (всего ${data.feedbacks.length} записей)</p>
+          </div>
+        `;
+      } else {
+        const info = charHeaderBios[activeFeedbackChar] || { name: activeFeedbackChar, role: '', avatarClass: 'avatar-heather', initial: activeFeedbackChar[0] };
+        const charFeedbacksCount = data.feedbacks.filter(f => f.characterKey === activeFeedbackChar).length;
+        feedbackBanner.innerHTML = `
+          <div class="feedback-banner-avatar ${info.avatarClass}">${info.initial}</div>
+          <div class="feedback-banner-info">
+            <h3>${info.name}</h3>
+            <p>${info.role} • ${charFeedbacksCount} записей в дневнике</p>
+          </div>
+        `;
+      }
     }
-  });
 
-  btnNextGame.addEventListener('click', () => {
-    if (currentReaderIndex < data.summaries.length - 1) {
-      openReader(currentReaderIndex + 1);
+    const filtered = data.feedbacks.filter(item => {
+      const matchChar = activeFeedbackChar === 'all' || item.characterKey === activeFeedbackChar;
+      const matchSearch = !searchQuery ||
+        item.title.toLowerCase().includes(searchQuery) ||
+        item.characterName.toLowerCase().includes(searchQuery) ||
+        item.content.toLowerCase().includes(searchQuery);
+      return matchChar && matchSearch;
+    });
+
+    if (filtered.length === 0) {
+      feedbackList.innerHTML = '<div style="padding: 4rem 1rem; text-align: center; color: var(--text-tertiary);">Записи обратной связи не найдены</div>';
+      return;
     }
-  });
 
-  storylineChips.addEventListener('click', (e) => {
-    if (e.target.classList.contains('chip')) {
-      storylineChips.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      activeStoryline = e.target.getAttribute('data-filter');
-      renderGamesGrid();
-    }
-  });
+    filtered.forEach(item => {
+      const card = document.createElement('article');
+      card.className = 'feedback-card';
 
-  // ----------------------------------------------------
-  // Characters Grid
-  // ----------------------------------------------------
+      let avatarBg = 'var(--accent)';
+      if (item.characterKey === 'Хизер') avatarBg = 'var(--heather-color)';
+      else if (item.characterKey === 'Молли') avatarBg = 'var(--molly-color)';
+      else if (item.characterKey === 'Эйден') avatarBg = 'var(--aiden-color)';
+      else if (item.characterKey === 'Грейвз') avatarBg = 'var(--graves-color)';
+
+      const paragraphs = item.content.split(/\r?\n\s*\r?\n/).filter(Boolean);
+      let bodyHtml = '';
+      paragraphs.forEach(p => {
+        let pText = escapeHtml(p.trim());
+        pText = pText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        if (searchQuery) {
+          const re = new RegExp('(' + escapeRegex(searchQuery) + ')', 'gi');
+          pText = pText.replace(re, '<span class="hl-match">$1</span>');
+        }
+        bodyHtml += '<p>' + pText.replace(/\n/g, '<br>') + '</p>';
+      });
+
+      card.innerHTML = `
+        <div class="feedback-header-row">
+          <div class="feedback-hero-badge">
+            <div class="mini-char-avatar" style="background: ${avatarBg};">${item.initial}</div>
+            <div>
+              <span class="feedback-title-text">${item.characterName} • ${item.title}</span>
+            </div>
+          </div>
+          <div class="feedback-meta-pills">
+            <span class="game-date-pill">⏳ ${item.readTime}</span>
+            <button class="tool-pill-btn btn-copy-fb">📋 Скопировать</button>
+          </div>
+        </div>
+        <div class="feedback-body">
+          ${bodyHtml}
+        </div>
+      `;
+
+      const copyBtn = card.querySelector('.btn-copy-fb');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(`⭐ ДНЕВНИК ОС: ${item.characterName} (${item.title})
+
+${item.content}`).then(() => {
+            showToast('✓ Текст ОС скопирован в буфер');
+          });
+        });
+      }
+
+      feedbackList.appendChild(card);
+    });
+  }
+
+  if (feedbackCharControls) {
+    feedbackCharControls.addEventListener('click', (e) => {
+      if (e.target.classList.contains('segment-btn')) {
+        feedbackCharControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        activeFeedbackChar = e.target.getAttribute('data-char');
+        renderFeedbackList();
+      }
+    });
+  }
+
+  // ================= CHARACTERS LOGIC =================
   function renderCharacters() {
+    if (!charactersGrid) return;
     charactersGrid.innerHTML = '';
 
     const filtered = data.characters.filter(char => {
@@ -248,7 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (filtered.length === 0) {
-      charactersGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 4rem; text-align: center; color: var(--text-muted);">Персонажи не найдены</div>';
+      charactersGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 4rem 1rem; text-align: center; color: var(--text-tertiary);">Персонажи не найдены</div>';
       return;
     }
 
@@ -258,22 +730,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let statusClass = 'status-alive';
       if (char.status === 'Погиб') statusClass = 'status-dead';
-      else if (char.status === 'В бегах') statusClass = 'status-run';
-      else if (char.status === 'Ранен') statusClass = 'status-injured';
-      else if (char.status === 'Пропал') statusClass = 'status-missing';
+      else if (char.status === 'Пропал' || char.status === 'Ранен' || char.status === 'В бегах') statusClass = 'status-warn';
+
+      const initial = char.name.charAt(0).toUpperCase();
 
       card.innerHTML = `
         <div>
-          <div class="char-badges">
-            <span class="badge-status ${statusClass}">${char.status}</span>
-            <span class="badge-faction">${char.faction}</span>
+          <div class="char-header">
+            <div class="char-avatar">${initial}</div>
+            <div class="char-name-group">
+              <h3 class="char-name">${char.name}</h3>
+              <span class="char-role">${char.role || 'Персонаж'}</span>
+            </div>
           </div>
-          <h3 class="char-name">${char.name}</h3>
-          <div class="char-role">${char.role || 'Персонаж'}</div>
-          <p class="char-bio">${char.bio || ''}</p>
+          <div class="char-pill-row">
+            <span class="status-pill ${statusClass}">${char.status}</span>
+            <span class="faction-pill">${char.faction}</span>
+          </div>
+          <p class="char-summary">${char.bio || ''}</p>
         </div>
-        <div class="char-link">
-          Подробнее в досье →
+        <div class="char-action-footer">
+          Открыть досье →
         </div>
       `;
 
@@ -283,55 +760,79 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openCharacterModal(char) {
-    modalAvatar.textContent = char.name.charAt(0).toUpperCase();
-    modalName.textContent = char.name;
-    modalRole.textContent = char.role || 'Персонаж';
-    modalStatus.textContent = char.status;
-    modalFaction.textContent = char.faction;
+    if (!charModal) return;
+    if (modalAvatar) modalAvatar.textContent = char.name.charAt(0).toUpperCase();
+    if (modalName) modalName.textContent = char.name;
+    if (modalRole) modalRole.textContent = char.role || 'Персонаж';
+    if (modalStatus) {
+      modalStatus.textContent = char.status;
+      let statusClass = 'status-alive';
+      if (char.status === 'Погиб') statusClass = 'status-dead';
+      else if (char.status === 'Пропал' || char.status === 'Ранен' || char.status === 'В бегах') statusClass = 'status-warn';
+      modalStatus.className = 'status-pill ' + statusClass;
+    }
+    if (modalFaction) modalFaction.textContent = char.faction;
+    if (modalBio) modalBio.textContent = char.bio || 'Данные засекречены.';
 
-    let statusClass = 'status-alive';
-    if (char.status === 'Погиб') statusClass = 'status-dead';
-    else if (char.status === 'В бегах') statusClass = 'status-run';
-    else if (char.status === 'Ранен') statusClass = 'status-injured';
-    else if (char.status === 'Пропал') statusClass = 'status-missing';
+    if (modalRelationsWrap && modalRelationsList) {
+      if (char.relations) {
+        modalRelationsWrap.style.display = 'block';
+        modalRelationsList.innerHTML = '';
+        const relArr = char.relations.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+        relArr.forEach(relName => {
+          const chip = document.createElement('span');
+          chip.className = 'rel-chip';
+          chip.textContent = relName;
+          
+          chip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const targetChar = data.characters.find(c => c.name.toLowerCase().includes(relName.toLowerCase()) || relName.toLowerCase().includes(c.name.toLowerCase()));
+            if (targetChar) {
+              openCharacterModal(targetChar);
+            } else {
+              showToast('Персонаж ' + relName + ' не найден в досье');
+            }
+          });
 
-    modalStatus.className = `badge-status ${statusClass}`;
-    modalBio.textContent = char.bio || 'Данные засекречены.';
-
-    if (char.relations) {
-      modalRelationsWrap.style.display = 'block';
-      modalRelations.textContent = char.relations;
-    } else {
-      modalRelationsWrap.style.display = 'none';
+          modalRelationsList.appendChild(chip);
+        });
+      } else {
+        modalRelationsWrap.style.display = 'none';
+      }
     }
 
     charModal.style.display = 'flex';
   }
 
-  modalClose.addEventListener('click', () => charModal.style.display = 'none');
-  charModal.addEventListener('click', (e) => {
-    if (e.target === charModal) charModal.style.display = 'none';
-  });
+  if (modalClose) modalClose.addEventListener('click', () => charModal.style.display = 'none');
+  if (charModal) {
+    charModal.addEventListener('click', (e) => {
+      if (e.target === charModal) charModal.style.display = 'none';
+    });
+  }
 
-  charStatusChips.addEventListener('click', (e) => {
-    if (e.target.classList.contains('chip')) {
-      charStatusChips.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      activeCharStatus = e.target.getAttribute('data-status');
-      renderCharacters();
-    }
-  });
+  if (statusControls) {
+    statusControls.addEventListener('click', (e) => {
+      if (e.target.classList.contains('segment-btn')) {
+        statusControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        activeCharStatus = e.target.getAttribute('data-status');
+        renderCharacters();
+      }
+    });
+  }
 
-  charFactionChips.addEventListener('click', (e) => {
-    if (e.target.classList.contains('chip')) {
-      charFactionChips.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      activeCharFaction = e.target.getAttribute('data-faction');
-      renderCharacters();
-    }
-  });
+  if (factionControls) {
+    factionControls.addEventListener('click', (e) => {
+      if (e.target.classList.contains('segment-btn')) {
+        factionControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        activeCharFaction = e.target.getAttribute('data-faction');
+        renderCharacters();
+      }
+    });
+  }
 
-  // Initial Boot
-  renderGamesGrid();
-  renderCharacters();
-});
+  // Pre-load current views
+  renderFeedbackList();
+};
