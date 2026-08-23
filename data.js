@@ -3643,6 +3643,17 @@ window.PORTO_DATA = {
       "file": "2026-07-06 Молли и Хизер, ч.04.md",
       "totalQuotesCount": 0,
       "sections": []
+    },
+    {
+      "id": "2026-07-10 Соло Эйден, ч.02",
+      "title": "По следам заложников",
+      "realDate": "10.07.2026",
+      "gameDate": "12–13 октября 1931, ночь",
+      "category": "Соло Эйден",
+      "branch": "Эйден и Малкольм",
+      "file": "2026-07-10 Соло Эйден, ч.02.md",
+      "totalQuotesCount": 0,
+      "sections": []
     }
   ]
 };
