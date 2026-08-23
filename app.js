@@ -1,5 +1,5 @@
 
-window.onload = function() {
+(function() {
   const data = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [] };
 
   let activeTab = 'games';
@@ -165,26 +165,27 @@ window.onload = function() {
     viewPanels.forEach(p => p.classList.remove('active'));
 
     if (tabKey === 'games') {
-      viewGames.classList.add('active');
+      if (viewGames) viewGames.classList.add('active');
     } else if (tabKey === 'reader') {
-      viewReader.classList.add('active');
+      if (viewReader) viewReader.classList.add('active');
     } else if (tabKey === 'transcripts') {
-      viewTranscripts.classList.add('active');
+      if (viewTranscripts) viewTranscripts.classList.add('active');
       renderTranscriptsGrid();
     } else if (tabKey === 'transcript-reader') {
-      viewTranscriptReader.classList.add('active');
+      if (viewTranscriptReader) viewTranscriptReader.classList.add('active');
     } else if (tabKey === 'player-notes') {
-      viewFeedbacks.classList.add('active');
+      if (viewFeedbacks) viewFeedbacks.classList.add('active');
       renderFeedbacksGrid();
     } else if (tabKey === 'feedback-reader') {
-      viewFeedbackReader.classList.add('active');
+      if (viewFeedbackReader) viewFeedbackReader.classList.add('active');
     } else if (tabKey === 'characters') {
-      viewCharacters.classList.add('active');
+      if (viewCharacters) viewCharacters.classList.add('active');
       renderCharacters();
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+  window.switchTab = switchTab;
 
   // Search Logic
   if (appSearch) {
@@ -613,7 +614,7 @@ window.onload = function() {
       const matchChar = activeFeedbackChar === 'all' || item.characterKey === activeFeedbackChar;
       const matchSearch = !searchQuery || 
         item.title.toLowerCase().includes(searchQuery) || 
-        item.characterName.toLowerCase().includes(searchQuery) ||
+        item.characterName.toLowerCase().includes(searchQuery) || 
         item.excerpt.toLowerCase().includes(searchQuery) ||
         item.content.toLowerCase().includes(searchQuery);
       return matchChar && matchSearch;
@@ -852,4 +853,10 @@ ${fb.content}`).then(() => {
       }
     });
   }
-};
+
+  // Initial immediate renders
+  renderGamesGrid();
+  renderTranscriptsGrid();
+  renderFeedbacksGrid();
+  renderCharacters();
+})();
