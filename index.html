@@ -2144,7 +2144,10 @@ window.PORTO_DATA = {
   }
 
   function escapeRegex(str) {
-    return str.replace(/[.*+?^$()|[\]\]/g, '\\$&');
+    return str.split('').map(function(c) {
+      if ('[]{}()*+?.,\^$|#'.indexOf(c) !== -1) return '\\' + c;
+      return c;
+    }).join('');
   }
 
   function openTranscriptReader(index) {
