@@ -147,15 +147,7 @@
       .replace(codeRegex, '<code style="background: var(--bg-input); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em;">$1</code>');
   }
 
-  // Navigation Logic
-  navLinks.forEach(link => {
-    link.addEventListener('click', () => {
-      const tab = link.getAttribute('data-tab');
-      switchTab(tab);
-      if (window.innerWidth <= 900 && sidebar) sidebar.classList.remove('open');
-    });
-  });
-
+  // Navigation Switch
   function switchTab(tabKey) {
     activeTab = tabKey;
     navLinks.forEach(link => {
@@ -185,7 +177,14 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  window.switchTab = switchTab;
+
+  navLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      const tab = link.getAttribute('data-tab');
+      switchTab(tab);
+      if (window.innerWidth <= 900 && sidebar) sidebar.classList.remove('open');
+    });
+  });
 
   // Search Logic
   if (appSearch) {
@@ -217,14 +216,12 @@
     });
   }
 
-  // Mobile Toggle
   if (mobileToggle && sidebar) {
     mobileToggle.addEventListener('click', () => {
       sidebar.classList.toggle('open');
     });
   }
 
-  // Theme Switcher
   themeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const theme = btn.getAttribute('data-theme');
@@ -248,7 +245,7 @@
     return branch === filter || category === filter;
   }
 
-  // Render Games Grid
+  // ================= 1. GAMES (SUMMARIES) =================
   function renderGamesGrid() {
     if (!gamesGrid) return;
     gamesGrid.innerHTML = '';
@@ -301,7 +298,6 @@
     });
   }
 
-  // Reader Open
   function openReader(index) {
     currentReaderIndex = index;
     const game = data.summaries[index];
@@ -329,7 +325,6 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  window.openReader = openReader;
 
   if (btnBackToGames) btnBackToGames.addEventListener('click', () => switchTab('games'));
   if (btnBackBottom) btnBackBottom.addEventListener('click', () => switchTab('games'));
@@ -357,7 +352,6 @@
     });
   }
 
-  // Reader Typography Controls
   let currentReaderSize = 1.08;
   if (btnFontSerif && btnFontSans) {
     btnFontSerif.addEventListener('click', () => {
@@ -421,7 +415,7 @@
     });
   }
 
-  // ================= TRANSCRIPTS LOGIC =================
+  // ================= 2. TRANSCRIPTS (ON-DEMAND TEXT) =================
   function renderTranscriptsGrid() {
     if (!transcriptsGrid) return;
     transcriptsGrid.innerHTML = '';
@@ -552,8 +546,21 @@
     if (transcriptSearchInput) transcriptSearchInput.value = '';
     transcriptSearchQuery = '';
 
-    if (transcriptBody) {
-      transcriptBody.innerHTML = formatTranscript(t.rawText);
+    if (t.rawText) {
+      if (transcriptBody) transcriptBody.innerHTML = formatTranscript(t.rawText);
+    } else {
+      if (transcriptBody) transcriptBody.innerHTML = '<div style="padding: 3rem 1rem; text-align: center; color: var(--text-tertiary);">⏳ Загрузка стенограммы...</div>';
+      fetch('./transcripts/' + encodeURIComponent(t.id) + '.txt')
+        .then(res => res.text())
+        .then(text => {
+          t.rawText = text;
+          if (activeTab === 'transcript-reader' && currentTranscriptIndex === index && transcriptBody) {
+            transcriptBody.innerHTML = formatTranscript(text, transcriptSearchQuery);
+          }
+        })
+        .catch(() => {
+          if (transcriptBody) transcriptBody.innerHTML = '<div style="padding: 3rem 1rem; text-align: center; color: var(--text-tertiary);">Не удалось загрузить стенограмму</div>';
+        });
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -563,7 +570,7 @@
     transcriptSearchInput.addEventListener('input', (e) => {
       transcriptSearchQuery = e.target.value.trim();
       const t = data.transcripts[currentTranscriptIndex];
-      if (t && transcriptBody) {
+      if (t && t.rawText && transcriptBody) {
         transcriptBody.innerHTML = formatTranscript(t.rawText, transcriptSearchQuery);
       }
     });
@@ -586,7 +593,7 @@
   if (btnCopyFullTranscript) {
     btnCopyFullTranscript.addEventListener('click', () => {
       const t = data.transcripts[currentTranscriptIndex];
-      if (t) {
+      if (t && t.rawText) {
         navigator.clipboard.writeText(t.rawText).then(() => {
           showToast('✓ Полный текст транскрибации скопирован!');
         });
@@ -605,7 +612,7 @@
     });
   }
 
-  // ================= FEEDBACK (ОС) GRID & READER =================
+  // ================= 3. FEEDBACK (ОС) GRID & READER =================
   function renderFeedbacksGrid() {
     if (!feedbacksGrid) return;
     feedbacksGrid.innerHTML = '';
@@ -668,7 +675,6 @@
     if (feedbackReaderTitle) feedbackReaderTitle.textContent = fb.title;
     if (feedbackReaderThesis) feedbackReaderThesis.textContent = '«' + fb.role + '»';
 
-    // Format paragraphs
     const paragraphs = fb.content.split(/\r?\n\s*\r?\n/).filter(Boolean);
     let bodyHtml = '';
     paragraphs.forEach(p => {
@@ -684,7 +690,6 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  window.openFeedbackReader = openFeedbackReader;
 
   if (btnBackToFeedbacks) btnBackToFeedbacks.addEventListener('click', () => switchTab('player-notes'));
   if (btnBackToFeedbacksBottom) btnBackToFeedbacksBottom.addEventListener('click', () => switchTab('player-notes'));
@@ -725,7 +730,7 @@ ${fb.content}`).then(() => {
     });
   }
 
-  // ================= CHARACTERS LOGIC =================
+  // ================= 4. CHARACTERS =================
   function renderCharacters() {
     if (!charactersGrid) return;
     charactersGrid.innerHTML = '';
@@ -854,7 +859,7 @@ ${fb.content}`).then(() => {
     });
   }
 
-  // Initial immediate renders
+  // Initial immediate render (instant 60fps)
   renderGamesGrid();
   renderTranscriptsGrid();
   renderFeedbacksGrid();
