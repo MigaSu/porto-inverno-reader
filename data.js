@@ -3996,6 +3996,17 @@ window.PORTO_DATA = {
       "file": "2026-08-13 Молли и Хизер, ч.10.md",
       "totalQuotesCount": 0,
       "sections": []
+    },
+    {
+      "id": "2026-08-16 Молли и Хизер, ч.11",
+      "title": "Бомба в юбилейном торте",
+      "realDate": "16.08.2026",
+      "gameDate": "25 октября 1931, вечер",
+      "category": "Молли и Хизер",
+      "branch": "Молли и Хизер",
+      "file": "2026-08-16 Молли и Хизер, ч.11.md",
+      "totalQuotesCount": 0,
+      "sections": []
     }
   ]
 };
