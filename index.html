@@ -1820,7 +1820,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
 
   // Navigation Controller
   const Navigation = {
-    switchTab(tabKey) {
+    switchTab(tabKey, push = true) {
       AppState.activeTab = tabKey;
       DOM.navLinks.forEach(link => {
         link.classList.toggle('active', link.getAttribute('data-tab') === tabKey);
@@ -1839,6 +1839,10 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
         else if (tabKey === 'transcripts') Grids.renderTranscripts();
         else if (tabKey === 'player-notes') Grids.renderFeedbacks();
         else if (tabKey === 'characters') Grids.renderCharacters();
+
+        if (push) {
+          history.pushState({ view: 'tab', tab: tabKey }, '', '#' + tabKey);
+        }
       }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1900,7 +1904,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
           thesis: item.thesis,
           footerLeft: '🎮 Игра: ' + item.realDate,
           actionText: 'Читать главу',
-          onClick: () => UnifiedReader.open('chapter', idx)
+          onClick: () => UnifiedReader.open('chapter', idx, true)
         });
       });
     },
@@ -1937,7 +1941,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
           thesis: '📜 Файл стенограммы: ' + item.id + '.txt',
           footerLeft: '📊 ' + item.linesCount + ' строк (' + item.sizeKb + ')',
           actionText: 'Открыть стенограмму',
-          onClick: () => UnifiedReader.open('transcript', idx)
+          onClick: () => UnifiedReader.open('transcript', idx, true)
         });
       });
     },
@@ -1973,7 +1977,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
           thesis: item.excerpt,
           footerLeft: '📊 ' + item.wordCount + ' слов',
           actionText: 'Читать запись',
-          onClick: () => UnifiedReader.open('feedback', idx)
+          onClick: () => UnifiedReader.open('feedback', idx, true)
         });
       });
     },
@@ -2028,7 +2032,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
             Открыть досье →
           </div>
         `;
-        card.addEventListener('click', () => CharactersModal.open(char));
+        card.addEventListener('click', () => CharactersModal.open(char, true));
         DOM.charactersGrid.appendChild(card);
       });
     }
@@ -2036,7 +2040,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
 
   // Unified Single Reader Engine
   const UnifiedReader = {
-    open(docType, index) {
+    open(docType, index, push = true) {
       AppState.reader.docType = docType;
       AppState.reader.currentIndex = index;
 
@@ -2065,7 +2069,11 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       if (!doc) return;
       AppState.reader.sourceTab = backTab;
 
-      Navigation.switchTab('reader');
+      Navigation.switchTab('reader', false);
+
+      if (push) {
+        history.pushState({ view: 'reader', docType, index, sourceTab: backTab }, '', '#reader:' + docType + ':' + index);
+      }
 
       // Update Toolbar & Back Buttons
       DOM.btnBack.textContent = backLabel;
@@ -2157,7 +2165,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
 
   // Character Dossier Modal
   const CharactersModal = {
-    open(char) {
+    open(char, push = true) {
       if (!DOM.charModal) return;
       DOM.modalAvatar.textContent = char.name.charAt(0).toUpperCase();
       DOM.modalName.textContent = char.name;
@@ -2183,7 +2191,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
           chip.addEventListener('click', (e) => {
             e.stopPropagation();
             const target = DataStore.characters.find(c => c.name.toLowerCase().includes(relName.toLowerCase()) || relName.toLowerCase().includes(c.name.toLowerCase()));
-            if (target) CharactersModal.open(target);
+            if (target) CharactersModal.open(target, true);
             else Utils.showToast('Персонаж ' + relName + ' не найден');
           });
           DOM.modalRelationsList.appendChild(chip);
@@ -2192,11 +2200,22 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
         DOM.modalRelationsWrap.style.display = 'none';
       }
 
+      if (push) {
+        history.pushState({ view: 'modal', charId: char.id }, '', '#char:' + char.id);
+      }
+
       DOM.charModal.style.display = 'flex';
     },
 
-    close() {
+    close(pop = true) {
       if (DOM.charModal) DOM.charModal.style.display = 'none';
+      if (pop && window.location.hash.startsWith('#char:')) {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.hash = '#' + AppState.activeTab;
+        }
+      }
     }
   };
 
@@ -2216,7 +2235,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
     DOM.navLinks.forEach(link => {
       link.addEventListener('click', () => {
         const tab = link.getAttribute('data-tab');
-        Navigation.switchTab(tab);
+        Navigation.switchTab(tab, true);
         closeSidebar();
       });
     });
@@ -2231,9 +2250,9 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       DOM.appSearch.addEventListener('input', (e) => {
         AppState.searchQuery = e.target.value.toLowerCase().trim();
         if (AppState.activeTab === 'reader') {
-          Navigation.switchTab(AppState.reader.sourceTab);
+          Navigation.switchTab(AppState.reader.sourceTab, true);
         } else {
-          Navigation.switchTab(AppState.activeTab);
+          Navigation.switchTab(AppState.activeTab, false);
         }
       });
 
@@ -2242,7 +2261,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
           e.preventDefault();
           DOM.appSearch.focus();
         } else if (e.key === 'Escape') {
-          CharactersModal.close();
+          CharactersModal.close(true);
         }
       });
     }
@@ -2257,17 +2276,25 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
     });
 
     // Reader Navigation & Controls
-    DOM.btnBack.addEventListener('click', () => Navigation.switchTab(AppState.reader.sourceTab));
-    DOM.btnBackBottom.addEventListener('click', () => Navigation.switchTab(AppState.reader.sourceTab));
+    function handleReaderBack() {
+      if (window.history.length > 1 && window.location.hash.startsWith('#reader:')) {
+        window.history.back();
+      } else {
+        Navigation.switchTab(AppState.reader.sourceTab, true);
+      }
+    }
+
+    DOM.btnBack.addEventListener('click', handleReaderBack);
+    DOM.btnBackBottom.addEventListener('click', handleReaderBack);
 
     DOM.btnPrev.addEventListener('click', () => {
       if (AppState.reader.currentIndex > 0) {
-        UnifiedReader.open(AppState.reader.docType, AppState.reader.currentIndex - 1);
+        UnifiedReader.open(AppState.reader.docType, AppState.reader.currentIndex - 1, true);
       }
     });
 
     DOM.btnNext.addEventListener('click', () => {
-      UnifiedReader.open(AppState.reader.docType, AppState.reader.currentIndex + 1);
+      UnifiedReader.open(AppState.reader.docType, AppState.reader.currentIndex + 1, true);
     });
 
     DOM.btnContextSwitch.addEventListener('click', () => {
@@ -2276,12 +2303,12 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       if (type === 'chapter') {
         const chapter = DataStore.summaries[idx];
         const tIdx = DataStore.transcripts.findIndex(t => t.id === chapter.id);
-        if (tIdx >= 0) UnifiedReader.open('transcript', tIdx);
+        if (tIdx >= 0) UnifiedReader.open('transcript', tIdx, true);
         else Utils.showToast('Стенограмма не найдена');
       } else if (type === 'transcript') {
         const transcript = DataStore.transcripts[idx];
         const sIdx = DataStore.summaries.findIndex(s => s.id === transcript.id);
-        if (sIdx >= 0) UnifiedReader.open('chapter', sIdx);
+        if (sIdx >= 0) UnifiedReader.open('chapter', sIdx, true);
         else Utils.showToast('Саммари не найдено');
       }
     });
@@ -2357,9 +2384,9 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
     setupSegmented(DOM.factionControls, 'charFaction', Grids.renderCharacters);
 
     // Modal
-    DOM.modalClose.addEventListener('click', CharactersModal.close);
+    DOM.modalClose.addEventListener('click', () => CharactersModal.close(true));
     DOM.charModal.addEventListener('click', (e) => {
-      if (e.target === DOM.charModal) CharactersModal.close();
+      if (e.target === DOM.charModal) CharactersModal.close(true);
     });
 
     // Theme Switcher
@@ -2377,6 +2404,55 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       document.documentElement.setAttribute('data-theme', savedTheme);
       DOM.themeBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-theme') === savedTheme));
     }
+
+    // Native Browser / Mobile Gesture "Back" Navigation Listener
+    window.addEventListener('popstate', (e) => {
+      if (DOM.sidebar && DOM.sidebar.classList.contains('open')) {
+        closeSidebar();
+      }
+
+      const hash = window.location.hash.replace(/^#/, '');
+
+      // Handle Modal State
+      if (!hash.startsWith('char:') && DOM.charModal && DOM.charModal.style.display === 'flex') {
+        CharactersModal.close(false);
+      }
+
+      if (e.state && e.state.view) {
+        if (e.state.view === 'tab') {
+          Navigation.switchTab(e.state.tab, false);
+        } else if (e.state.view === 'reader') {
+          UnifiedReader.open(e.state.docType, e.state.index, false);
+        } else if (e.state.view === 'modal') {
+          const char = DataStore.characters.find(c => c.id === e.state.charId);
+          if (char) CharactersModal.open(char, false);
+        }
+      } else {
+        restoreFromHash(hash);
+      }
+    });
+  }
+
+  function restoreFromHash(hash) {
+    if (hash.startsWith('reader:')) {
+      const parts = hash.split(':');
+      const docType = parts[1];
+      const idx = parseInt(parts[2] || '0', 10);
+      UnifiedReader.open(docType, idx, false);
+    } else if (hash.startsWith('char:')) {
+      const charId = hash.replace('char:', '');
+      const char = DataStore.characters.find(c => c.id === charId);
+      if (char) {
+        Navigation.switchTab('characters', false);
+        CharactersModal.open(char, false);
+      } else {
+        Navigation.switchTab('games', false);
+      }
+    } else if (hash && ['games', 'transcripts', 'player-notes', 'characters'].includes(hash)) {
+      Navigation.switchTab(hash, false);
+    } else {
+      Navigation.switchTab('games', false);
+    }
   }
 
   // Update counts
@@ -2387,10 +2463,8 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
 
   // Initialize
   initEvents();
-  Grids.renderGames();
-  Grids.renderTranscripts();
-  Grids.renderFeedbacks();
-  Grids.renderCharacters();
+  const initialHash = window.location.hash.replace(/^#/, '');
+  restoreFromHash(initialHash);
 })();
 
   </script>
