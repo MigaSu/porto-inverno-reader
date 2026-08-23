@@ -721,32 +721,61 @@
       }
     });
 
-    // Font and Size
-    DOM.btnFontSerif.addEventListener('click', () => {
-      document.documentElement.style.setProperty('--font-reader', 'var(--font-serif)');
-      DOM.btnFontSerif.classList.add('active');
-      DOM.btnFontSans.classList.remove('active');
-    });
+    // Font Family and Sizing Controls
+    function setReaderFontSize(sizeRem) {
+      AppState.reader.fontSize = Math.min(1.65, Math.max(0.8, Math.round(sizeRem * 100) / 100));
+      document.documentElement.style.setProperty('--reader-size', AppState.reader.fontSize + 'rem');
+      const percent = Math.round((AppState.reader.fontSize / 1.08) * 100);
+      const disp = document.getElementById('fontSizeDisplay');
+      if (disp) disp.textContent = percent + '%';
+      localStorage.setItem('porto_font_size', AppState.reader.fontSize.toString());
+    }
 
-    DOM.btnFontSans.addEventListener('click', () => {
-      document.documentElement.style.setProperty('--font-reader', 'var(--font-sans)');
-      DOM.btnFontSans.classList.add('active');
-      DOM.btnFontSerif.classList.remove('active');
-    });
-
-    DOM.btnSizePlus.addEventListener('click', () => {
-      if (AppState.reader.fontSize < 1.35) {
-        AppState.reader.fontSize += 0.06;
-        document.documentElement.style.setProperty('--reader-size', AppState.reader.fontSize + 'rem');
+    function setReaderFontFamily(fam) {
+      if (fam === 'serif') {
+        document.documentElement.style.setProperty('--font-reader', 'var(--font-serif)');
+        if (DOM.btnFontSerif) DOM.btnFontSerif.classList.add('active');
+        if (DOM.btnFontSans) DOM.btnFontSans.classList.remove('active');
+        localStorage.setItem('porto_font_family', 'serif');
+      } else {
+        document.documentElement.style.setProperty('--font-reader', 'var(--font-sans)');
+        if (DOM.btnFontSans) DOM.btnFontSans.classList.add('active');
+        if (DOM.btnFontSerif) DOM.btnFontSerif.classList.remove('active');
+        localStorage.setItem('porto_font_family', 'sans');
       }
+    }
+
+    DOM.btnFontSerif.addEventListener('click', (e) => {
+      e.preventDefault();
+      setReaderFontFamily('serif');
     });
 
-    DOM.btnSizeMinus.addEventListener('click', () => {
-      if (AppState.reader.fontSize > 0.9) {
-        AppState.reader.fontSize -= 0.06;
-        document.documentElement.style.setProperty('--reader-size', AppState.reader.fontSize + 'rem');
-      }
+    DOM.btnFontSans.addEventListener('click', (e) => {
+      e.preventDefault();
+      setReaderFontFamily('sans');
     });
+
+    DOM.btnSizePlus.addEventListener('click', (e) => {
+      e.preventDefault();
+      setReaderFontSize(AppState.reader.fontSize + 0.1);
+      Utils.showToast('Размер текста: ' + Math.round((AppState.reader.fontSize / 1.08) * 100) + '%');
+    });
+
+    DOM.btnSizeMinus.addEventListener('click', (e) => {
+      e.preventDefault();
+      setReaderFontSize(AppState.reader.fontSize - 0.1);
+      Utils.showToast('Размер текста: ' + Math.round((AppState.reader.fontSize / 1.08) * 100) + '%');
+    });
+
+    // Restore Font Preferences
+    const savedFontSize = parseFloat(localStorage.getItem('porto_font_size'));
+    if (savedFontSize && !isNaN(savedFontSize)) {
+      setReaderFontSize(savedFontSize);
+    }
+    const savedFontFam = localStorage.getItem('porto_font_family');
+    if (savedFontFam) {
+      setReaderFontFamily(savedFontFam);
+    }
 
     // Segmented Controls Helper (DRY)
     function setupSegmented(container, filterKey, renderFn) {
