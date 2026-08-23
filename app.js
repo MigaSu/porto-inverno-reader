@@ -256,8 +256,7 @@
         item.title.toLowerCase().includes(searchQuery) || 
         item.thesis.toLowerCase().includes(searchQuery) ||
         item.gameDate.toLowerCase().includes(searchQuery) ||
-        item.realDate.toLowerCase().includes(searchQuery) ||
-        item.content.toLowerCase().includes(searchQuery);
+        item.realDate.toLowerCase().includes(searchQuery);
       return matchStoryline && matchSearch;
     });
 
@@ -318,10 +317,28 @@
     if (readerReadTime) readerReadTime.textContent = '⏳ ' + (game.readTime || '5 мин чтения');
     if (readerTitle) readerTitle.textContent = game.title;
     if (readerThesis) readerThesis.textContent = '«' + game.thesis + '»';
-    if (readerBody) readerBody.innerHTML = parseMarkdown(game.content);
 
     if (btnPrevGame) btnPrevGame.disabled = index <= 0;
     if (btnNextGame) btnNextGame.disabled = index >= data.summaries.length - 1;
+
+    // Load content on demand if not cached
+    if (game.content) {
+      if (readerBody) readerBody.innerHTML = parseMarkdown(game.content);
+    } else {
+      if (readerBody) readerBody.innerHTML = '<div style="padding: 3rem 1rem; text-align: center; color: var(--text-tertiary);">⏳ Загрузка текста главы...</div>';
+      const filename = game.file || (game.id + '.md');
+      fetch('./summaries/' + encodeURIComponent(filename))
+        .then(res => res.text())
+        .then(text => {
+          game.content = text;
+          if (activeTab === 'reader' && currentReaderIndex === index && readerBody) {
+            readerBody.innerHTML = parseMarkdown(text);
+          }
+        })
+        .catch(() => {
+          if (readerBody) readerBody.innerHTML = '<div style="padding: 3rem 1rem; text-align: center; color: var(--text-tertiary);">Не удалось загрузить текст главы</div>';
+        });
+    }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -387,10 +404,12 @@
   if (btnCopyChapter) {
     btnCopyChapter.addEventListener('click', () => {
       const game = data.summaries[currentReaderIndex];
-      if (game) {
+      if (game && game.content) {
         navigator.clipboard.writeText(game.content).then(() => {
           showToast('✓ Текст главы скопирован в буфер');
         });
+      } else {
+        showToast('Текст еще не загружен');
       }
     });
   }
@@ -550,7 +569,8 @@
       if (transcriptBody) transcriptBody.innerHTML = formatTranscript(t.rawText);
     } else {
       if (transcriptBody) transcriptBody.innerHTML = '<div style="padding: 3rem 1rem; text-align: center; color: var(--text-tertiary);">⏳ Загрузка стенограммы...</div>';
-      fetch('./transcripts/' + encodeURIComponent(t.id) + '.txt')
+      const filename = t.file || (t.id + '.txt');
+      fetch('./transcripts/' + encodeURIComponent(filename))
         .then(res => res.text())
         .then(text => {
           t.rawText = text;
@@ -597,6 +617,8 @@
         navigator.clipboard.writeText(t.rawText).then(() => {
           showToast('✓ Полный текст транскрибации скопирован!');
         });
+      } else {
+        showToast('Текст еще не загружен');
       }
     });
   }
@@ -622,8 +644,7 @@
       const matchSearch = !searchQuery || 
         item.title.toLowerCase().includes(searchQuery) || 
         item.characterName.toLowerCase().includes(searchQuery) || 
-        item.excerpt.toLowerCase().includes(searchQuery) ||
-        item.content.toLowerCase().includes(searchQuery);
+        item.excerpt.toLowerCase().includes(searchQuery);
       return matchChar && matchSearch;
     });
 
@@ -675,20 +696,41 @@
     if (feedbackReaderTitle) feedbackReaderTitle.textContent = fb.title;
     if (feedbackReaderThesis) feedbackReaderThesis.textContent = '«' + fb.role + '»';
 
-    const paragraphs = fb.content.split(/\r?\n\s*\r?\n/).filter(Boolean);
+    if (btnPrevFeedback) btnPrevFeedback.disabled = index <= 0;
+    if (btnNextFeedback) btnNextFeedback.disabled = index >= data.feedbacks.length - 1;
+
+    // Load content on demand
+    if (fb.content) {
+      renderFeedbackBody(fb.content);
+    } else {
+      if (feedbackReaderBody) feedbackReaderBody.innerHTML = '<div style="padding: 3rem 1rem; text-align: center; color: var(--text-tertiary);">⏳ Загрузка записи...</div>';
+      const filename = fb.file || (fb.id + '.txt');
+      fetch('./feedbacks/' + encodeURIComponent(filename))
+        .then(res => res.text())
+        .then(text => {
+          fb.content = text;
+          if (activeTab === 'feedback-reader' && currentFeedbackIndex === index) {
+            renderFeedbackBody(text);
+          }
+        })
+        .catch(() => {
+          if (feedbackReaderBody) feedbackReaderBody.innerHTML = '<div style="padding: 3rem 1rem; text-align: center; color: var(--text-tertiary);">Не удалось загрузить запись</div>';
+        });
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderFeedbackBody(text) {
+    if (!feedbackReaderBody) return;
+    const paragraphs = text.split(/\r?\n\s*\r?\n/).filter(Boolean);
     let bodyHtml = '';
     paragraphs.forEach(p => {
       let pText = escapeHtml(p.trim());
       pText = pText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
       bodyHtml += '<p>' + pText.replace(/\n/g, '<br>') + '</p>';
     });
-
-    if (feedbackReaderBody) feedbackReaderBody.innerHTML = bodyHtml;
-
-    if (btnPrevFeedback) btnPrevFeedback.disabled = index <= 0;
-    if (btnNextFeedback) btnNextFeedback.disabled = index >= data.feedbacks.length - 1;
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    feedbackReaderBody.innerHTML = bodyHtml;
   }
 
   if (btnBackToFeedbacks) btnBackToFeedbacks.addEventListener('click', () => switchTab('player-notes'));
@@ -709,12 +751,14 @@
   if (btnCopyFeedbackDoc) {
     btnCopyFeedbackDoc.addEventListener('click', () => {
       const fb = data.feedbacks[currentFeedbackIndex];
-      if (fb) {
+      if (fb && fb.content) {
         navigator.clipboard.writeText(`⭐ ДНЕВНИК ОС: ${fb.characterName} (${fb.title})
 
 ${fb.content}`).then(() => {
           showToast('✓ Текст записи скопирован в буфер');
         });
+      } else {
+        showToast('Текст еще не загружен');
       }
     });
   }
