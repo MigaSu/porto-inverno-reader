@@ -7,9 +7,10 @@ window.onload = function() {
   let activeTranscriptStoryline = 'all';
   let activeCharStatus = 'all';
   let activeCharFaction = 'all';
-  let activeFeedbackChar = 'Хизер';
+  let activeFeedbackChar = 'all';
   let currentReaderIndex = -1;
   let currentTranscriptIndex = -1;
+  let currentFeedbackIndex = -1;
   let searchQuery = '';
   let transcriptSearchQuery = '';
 
@@ -20,8 +21,9 @@ window.onload = function() {
   const viewReader = document.getElementById('view-reader');
   const viewTranscripts = document.getElementById('view-transcripts');
   const viewTranscriptReader = document.getElementById('view-transcript-reader');
+  const viewFeedbacks = document.getElementById('view-feedbacks');
+  const viewFeedbackReader = document.getElementById('view-feedback-reader');
   const viewCharacters = document.getElementById('view-characters');
-  const viewNotes = document.getElementById('view-player-notes');
 
   const gamesCountEl = document.getElementById('gamesCount');
   const transcriptsCountEl = document.getElementById('transcriptsCount');
@@ -69,10 +71,19 @@ window.onload = function() {
   const transcriptBody = document.getElementById('transcriptBody');
   const transcriptSearchInput = document.getElementById('transcriptSearchInput');
 
-  // Feedback View Elements
+  // Feedback (ОС) View Elements
+  const feedbacksGrid = document.getElementById('feedbacksGrid');
   const feedbackCharControls = document.getElementById('feedbackCharControls');
-  const feedbackBanner = document.getElementById('feedbackBanner');
-  const feedbackList = document.getElementById('feedbackList');
+  const btnBackToFeedbacks = document.getElementById('btnBackToFeedbacks');
+  const btnBackToFeedbacksBottom = document.getElementById('btnBackToFeedbacksBottom');
+  const feedbackReaderCategory = document.getElementById('feedbackReaderCategory');
+  const feedbackReaderReadTime = document.getElementById('feedbackReaderReadTime');
+  const feedbackReaderTitle = document.getElementById('feedbackReaderTitle');
+  const feedbackReaderThesis = document.getElementById('feedbackReaderThesis');
+  const feedbackReaderBody = document.getElementById('feedbackReaderBody');
+  const btnPrevFeedback = document.getElementById('btnPrevFeedback');
+  const btnNextFeedback = document.getElementById('btnNextFeedback');
+  const btnCopyFeedbackDoc = document.getElementById('btnCopyFeedbackDoc');
 
   // Characters View Elements
   const charactersGrid = document.getElementById('charactersGrid');
@@ -103,7 +114,7 @@ window.onload = function() {
 
   // Reading progress tracking
   window.addEventListener('scroll', () => {
-    if (activeTab === 'reader' || activeTab === 'transcript-reader') {
+    if (activeTab === 'reader' || activeTab === 'transcript-reader' || activeTab === 'feedback-reader') {
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       const scrolled = (window.scrollY / (docHeight || 1)) * 100;
       if (progressBar) progressBar.style.width = Math.min(100, Math.max(0, scrolled)) + '%';
@@ -162,12 +173,14 @@ window.onload = function() {
       renderTranscriptsGrid();
     } else if (tabKey === 'transcript-reader') {
       viewTranscriptReader.classList.add('active');
+    } else if (tabKey === 'player-notes') {
+      viewFeedbacks.classList.add('active');
+      renderFeedbacksGrid();
+    } else if (tabKey === 'feedback-reader') {
+      viewFeedbackReader.classList.add('active');
     } else if (tabKey === 'characters') {
       viewCharacters.classList.add('active');
       renderCharacters();
-    } else if (tabKey === 'player-notes') {
-      viewNotes.classList.add('active');
-      renderFeedbackList();
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -183,10 +196,11 @@ window.onload = function() {
       } else if (activeTab === 'transcripts' || activeTab === 'transcript-reader') {
         if (activeTab === 'transcript-reader') switchTab('transcripts');
         renderTranscriptsGrid();
+      } else if (activeTab === 'player-notes' || activeTab === 'feedback-reader') {
+        if (activeTab === 'feedback-reader') switchTab('player-notes');
+        renderFeedbacksGrid();
       } else if (activeTab === 'characters') {
         renderCharacters();
-      } else if (activeTab === 'player-notes') {
-        renderFeedbackList();
       }
     });
 
@@ -590,106 +604,112 @@ window.onload = function() {
     });
   }
 
-  // ================= FEEDBACK (ОС) LOGIC =================
-  const charHeaderBios = {
-    'Хизер': { name: 'Хизер Реймонд', role: 'Личный телохранитель Молли Фишер, бывший спецагент', avatarClass: 'avatar-heather', initial: 'Х' },
-    'Молли': { name: 'Молли Фишер', role: 'Наследница синдиката Фишеров, глава логистической сети', avatarClass: 'avatar-molly', initial: 'М' },
-    'Эйден': { name: 'Эйден Кроу', role: 'Бывший детектив полиции, ищущий свою семью в Порто-Инверно', avatarClass: 'avatar-aiden', initial: 'Э' },
-    'Грейвз': { name: 'Малкольм Грейвз', role: 'Ветеран Первой мировой войны, стрелок и штурмовик', avatarClass: 'avatar-graves', initial: 'Г' }
-  };
-
-  function renderFeedbackList() {
-    if (!feedbackList) return;
-    feedbackList.innerHTML = '';
-
-    if (feedbackBanner) {
-      if (activeFeedbackChar === 'all') {
-        feedbackBanner.innerHTML = `
-          <div class="feedback-banner-avatar" style="background: linear-gradient(135deg, #2c2c2e, #1c1c1e); color: #fff;">📝</div>
-          <div class="feedback-banner-info">
-            <h3>Сводный дневник обратной связи</h3>
-            <p>Все мысли, переживания, планы и гипотезы игроков после сессий (всего ${data.feedbacks.length} записей)</p>
-          </div>
-        `;
-      } else {
-        const info = charHeaderBios[activeFeedbackChar] || { name: activeFeedbackChar, role: '', avatarClass: 'avatar-heather', initial: activeFeedbackChar[0] };
-        const charFeedbacksCount = data.feedbacks.filter(f => f.characterKey === activeFeedbackChar).length;
-        feedbackBanner.innerHTML = `
-          <div class="feedback-banner-avatar ${info.avatarClass}">${info.initial}</div>
-          <div class="feedback-banner-info">
-            <h3>${info.name}</h3>
-            <p>${info.role} • ${charFeedbacksCount} записей в дневнике</p>
-          </div>
-        `;
-      }
-    }
+  // ================= FEEDBACK (ОС) GRID & READER =================
+  function renderFeedbacksGrid() {
+    if (!feedbacksGrid) return;
+    feedbacksGrid.innerHTML = '';
 
     const filtered = data.feedbacks.filter(item => {
       const matchChar = activeFeedbackChar === 'all' || item.characterKey === activeFeedbackChar;
-      const matchSearch = !searchQuery ||
-        item.title.toLowerCase().includes(searchQuery) ||
+      const matchSearch = !searchQuery || 
+        item.title.toLowerCase().includes(searchQuery) || 
         item.characterName.toLowerCase().includes(searchQuery) ||
+        item.excerpt.toLowerCase().includes(searchQuery) ||
         item.content.toLowerCase().includes(searchQuery);
       return matchChar && matchSearch;
     });
 
     if (filtered.length === 0) {
-      feedbackList.innerHTML = '<div style="padding: 4rem 1rem; text-align: center; color: var(--text-tertiary);">Записи обратной связи не найдены</div>';
+      feedbacksGrid.innerHTML = '<div style="grid-column: 1/-1; padding: 4rem 1rem; text-align: center; color: var(--text-tertiary);">Записи обратной связи не найдены</div>';
       return;
     }
 
     filtered.forEach(item => {
-      const card = document.createElement('article');
-      card.className = 'feedback-card';
-
-      let avatarBg = 'var(--accent)';
-      if (item.characterKey === 'Хизер') avatarBg = 'var(--heather-color)';
-      else if (item.characterKey === 'Молли') avatarBg = 'var(--molly-color)';
-      else if (item.characterKey === 'Эйден') avatarBg = 'var(--aiden-color)';
-      else if (item.characterKey === 'Грейвз') avatarBg = 'var(--graves-color)';
-
-      const paragraphs = item.content.split(/\r?\n\s*\r?\n/).filter(Boolean);
-      let bodyHtml = '';
-      paragraphs.forEach(p => {
-        let pText = escapeHtml(p.trim());
-        pText = pText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        if (searchQuery) {
-          const re = new RegExp('(' + escapeRegex(searchQuery) + ')', 'gi');
-          pText = pText.replace(re, '<span class="hl-match">$1</span>');
-        }
-        bodyHtml += '<p>' + pText.replace(/\n/g, '<br>') + '</p>';
-      });
+      const actualIdx = data.feedbacks.findIndex(f => f.id === item.id);
+      const card = document.createElement('div');
+      card.className = 'game-card';
 
       card.innerHTML = `
-        <div class="feedback-header-row">
-          <div class="feedback-hero-badge">
-            <div class="mini-char-avatar" style="background: ${avatarBg};">${item.initial}</div>
-            <div>
-              <span class="feedback-title-text">${item.characterName} • ${item.title}</span>
-            </div>
-          </div>
-          <div class="feedback-meta-pills">
+        <div>
+          <div class="game-meta-row">
             <span class="game-date-pill">⏳ ${item.readTime}</span>
-            <button class="tool-pill-btn btn-copy-fb">📋 Скопировать</button>
+            <span class="game-branch-tag ${item.badgeClass}">${item.characterName}</span>
           </div>
+          <h3 class="game-title">${item.title}</h3>
+          <p class="game-thesis">${item.excerpt}</p>
         </div>
-        <div class="feedback-body">
-          ${bodyHtml}
+        <div class="game-footer-row">
+          <span class="game-real-date">📊 ${item.wordCount} слов</span>
+          <span class="game-action-link">Читать запись →</span>
         </div>
       `;
 
-      const copyBtn = card.querySelector('.btn-copy-fb');
-      if (copyBtn) {
-        copyBtn.addEventListener('click', () => {
-          navigator.clipboard.writeText(`⭐ ДНЕВНИК ОС: ${item.characterName} (${item.title})
+      card.addEventListener('click', () => {
+        openFeedbackReader(actualIdx);
+      });
 
-${item.content}`).then(() => {
-            showToast('✓ Текст ОС скопирован в буфер');
-          });
+      feedbacksGrid.appendChild(card);
+    });
+  }
+
+  function openFeedbackReader(index) {
+    currentFeedbackIndex = index;
+    const fb = data.feedbacks[index];
+    if (!fb) return;
+
+    switchTab('feedback-reader');
+
+    if (feedbackReaderCategory) {
+      feedbackReaderCategory.textContent = fb.characterName;
+      feedbackReaderCategory.className = 'game-branch-tag ' + fb.badgeClass;
+    }
+    if (feedbackReaderReadTime) feedbackReaderReadTime.textContent = '⏳ ' + fb.readTime + ' • ' + fb.wordCount + ' слов';
+    if (feedbackReaderTitle) feedbackReaderTitle.textContent = fb.title;
+    if (feedbackReaderThesis) feedbackReaderThesis.textContent = '«' + fb.role + '»';
+
+    // Format paragraphs
+    const paragraphs = fb.content.split(/\r?\n\s*\r?\n/).filter(Boolean);
+    let bodyHtml = '';
+    paragraphs.forEach(p => {
+      let pText = escapeHtml(p.trim());
+      pText = pText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      bodyHtml += '<p>' + pText.replace(/\n/g, '<br>') + '</p>';
+    });
+
+    if (feedbackReaderBody) feedbackReaderBody.innerHTML = bodyHtml;
+
+    if (btnPrevFeedback) btnPrevFeedback.disabled = index <= 0;
+    if (btnNextFeedback) btnNextFeedback.disabled = index >= data.feedbacks.length - 1;
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  window.openFeedbackReader = openFeedbackReader;
+
+  if (btnBackToFeedbacks) btnBackToFeedbacks.addEventListener('click', () => switchTab('player-notes'));
+  if (btnBackToFeedbacksBottom) btnBackToFeedbacksBottom.addEventListener('click', () => switchTab('player-notes'));
+
+  if (btnPrevFeedback) {
+    btnPrevFeedback.addEventListener('click', () => {
+      if (currentFeedbackIndex > 0) openFeedbackReader(currentFeedbackIndex - 1);
+    });
+  }
+
+  if (btnNextFeedback) {
+    btnNextFeedback.addEventListener('click', () => {
+      if (currentFeedbackIndex < data.feedbacks.length - 1) openFeedbackReader(currentFeedbackIndex + 1);
+    });
+  }
+
+  if (btnCopyFeedbackDoc) {
+    btnCopyFeedbackDoc.addEventListener('click', () => {
+      const fb = data.feedbacks[currentFeedbackIndex];
+      if (fb) {
+        navigator.clipboard.writeText(`⭐ ДНЕВНИК ОС: ${fb.characterName} (${fb.title})
+
+${fb.content}`).then(() => {
+          showToast('✓ Текст записи скопирован в буфер');
         });
       }
-
-      feedbackList.appendChild(card);
     });
   }
 
@@ -699,7 +719,7 @@ ${item.content}`).then(() => {
         feedbackCharControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
         activeFeedbackChar = e.target.getAttribute('data-char');
-        renderFeedbackList();
+        renderFeedbacksGrid();
       }
     });
   }
@@ -832,7 +852,4 @@ ${item.content}`).then(() => {
       }
     });
   }
-
-  // Pre-load current views
-  renderFeedbackList();
 };
