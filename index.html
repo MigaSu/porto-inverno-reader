@@ -124,7 +124,7 @@ html {
   scroll-behavior: smooth;
 }
 
-body {
+html, body {
   background-color: var(--bg-app);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -132,7 +132,10 @@ body {
   line-height: 1.5;
   letter-spacing: -0.01em;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
+  position: relative;
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
@@ -154,6 +157,81 @@ body {
 .app-container {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* ================= MOBILE TOP HEADER ================= */
+.mobile-top-header {
+  display: none;
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--bg-sidebar);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: 70;
+  padding: 0 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.mobile-brand-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.mobile-menu-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 0.35rem 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+}
+
+.mobile-menu-btn:active {
+  transform: scale(0.96);
+  background: var(--bg-surface-active);
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 75;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.sidebar-backdrop.visible {
+  display: block;
+  opacity: 1;
 }
 
 /* ================= APPLE FLOATING SIDEBAR ================= */
@@ -169,7 +247,7 @@ body {
   top: 0;
   bottom: 0;
   left: 0;
-  z-index: 60;
+  z-index: 80;
   padding: 1.5rem 1rem;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease;
 }
@@ -178,7 +256,27 @@ body {
   padding: 0.5rem 0.6rem 1.25rem 0.6rem;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-header-left {
+  display: flex;
+  align-items: center;
   gap: 0.85rem;
+}
+
+.sidebar-close-btn {
+  display: none;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-logo {
@@ -375,13 +473,18 @@ body {
   margin-left: var(--sidebar-w);
   flex-grow: 1;
   padding: 2.5rem 3rem 6rem 3rem;
+  width: calc(100% - var(--sidebar-w));
   max-width: 1360px;
+  box-sizing: border-box;
+  overflow-x: hidden;
   transition: all 0.25s ease;
 }
 
 .view-panel {
   display: none;
   animation: fadeIn 0.25s ease forwards;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .view-panel.active {
@@ -400,6 +503,12 @@ body {
   margin-bottom: 2.2rem;
   gap: 1.5rem;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.view-title-group {
+  max-width: 100%;
 }
 
 .view-title-group h2 {
@@ -407,12 +516,14 @@ body {
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text-primary);
+  word-break: break-word;
 }
 
 .view-title-group p {
   color: var(--text-secondary);
   font-size: 0.92rem;
   margin-top: 0.25rem;
+  word-break: break-word;
 }
 
 .segmented-control {
@@ -422,7 +533,15 @@ body {
   padding: 3px;
   border-radius: var(--radius-pill);
   gap: 3px;
-  flex-wrap: wrap;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.segmented-control::-webkit-scrollbar {
+  display: none;
 }
 
 .segment-btn {
@@ -437,6 +556,7 @@ body {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .segment-btn:hover {
@@ -453,8 +573,10 @@ body {
 /* ================= UNIVERSAL GRID & CARDS ================= */
 .universal-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .app-card {
@@ -470,6 +592,8 @@ body {
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-subtle);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .app-card::before {
@@ -494,12 +618,14 @@ body {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
+  gap: 0.5rem;
 }
 
 .date-pill {
   font-size: 0.75rem;
   color: var(--text-tertiary);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .badge-tag {
@@ -509,6 +635,7 @@ body {
   border-radius: var(--radius-pill);
   background: var(--border-subtle);
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .tag-molly { background: var(--molly-soft); color: var(--molly-color); }
@@ -524,6 +651,7 @@ body {
   color: var(--text-primary);
   line-height: 1.35;
   margin-bottom: 0.5rem;
+  word-break: break-word;
 }
 
 .card-thesis {
@@ -535,6 +663,7 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-bottom: 1.25rem;
+  word-break: break-word;
 }
 
 .card-footer-row {
@@ -544,10 +673,14 @@ body {
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-subtle);
   font-size: 0.76rem;
+  gap: 0.5rem;
 }
 
 .card-subtitle {
   color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-action-link {
@@ -557,6 +690,7 @@ body {
   align-items: center;
   gap: 0.25rem;
   transition: gap 0.2s ease;
+  white-space: nowrap;
 }
 
 .app-card:hover .card-action-link {
@@ -566,7 +700,9 @@ body {
 /* ================= UNIFIED READER VIEW ================= */
 .reader-wrapper {
   max-width: 860px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .reading-progress-bar {
@@ -591,11 +727,13 @@ body {
   border-radius: var(--radius-md);
   padding: 0.6rem 1rem;
   margin-bottom: 2rem;
-  gap: 1rem;
+  gap: 0.75rem;
   position: sticky;
   top: 1rem;
   z-index: 40;
   box-shadow: var(--shadow-subtle);
+  box-sizing: border-box;
+  flex-wrap: wrap;
 }
 
 .btn-icon-text {
@@ -612,6 +750,7 @@ body {
   padding: 0.35rem 0.6rem;
   border-radius: var(--radius-sm);
   transition: background 0.2s ease;
+  white-space: nowrap;
 }
 
 .btn-icon-text:hover {
@@ -622,6 +761,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .tool-pill-btn {
@@ -635,6 +775,7 @@ body {
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .tool-pill-btn:hover, .tool-pill-btn.active {
@@ -648,6 +789,9 @@ body {
   border-radius: var(--radius-lg);
   padding: 3.5rem 3.5rem 4.5rem 3.5rem;
   box-shadow: var(--shadow-subtle);
+  box-sizing: border-box;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .reader-doc-meta {
@@ -665,6 +809,7 @@ body {
   line-height: 1.25;
   color: var(--text-primary);
   margin-bottom: 1rem;
+  word-break: break-word;
 }
 
 .doc-thesis {
@@ -675,6 +820,7 @@ body {
   padding-left: 1.2rem;
   border-left: 2px solid var(--accent);
   margin-bottom: 2.5rem;
+  word-break: break-word;
 }
 
 .doc-content {
@@ -682,6 +828,8 @@ body {
   font-size: var(--reader-size);
   line-height: 1.8;
   color: var(--text-primary);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .doc-content p {
@@ -707,7 +855,8 @@ body {
   align-items: center;
   justify-content: space-between;
   margin-top: 2.5rem;
-  gap: 1rem;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .nav-arrow-btn {
@@ -724,6 +873,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .nav-arrow-btn:hover:not(:disabled) {
@@ -744,6 +894,8 @@ body {
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-subtle);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .transcript-filter-bar input {
@@ -756,6 +908,8 @@ body {
   font-size: 0.88rem;
   color: var(--text-primary);
   outline: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .transcript-filter-bar input:focus {
@@ -768,6 +922,7 @@ body {
   background: rgba(255, 255, 255, 0.02);
   border-left: 3px solid var(--border-subtle);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  word-break: break-word;
 }
 
 .transcript-entry.speaker-gm {
@@ -795,6 +950,7 @@ body {
   color: var(--text-primary);
   margin-bottom: 0.3rem;
   line-height: 1.6;
+  word-break: break-word;
 }
 
 .timestamp-pill {
@@ -805,6 +961,7 @@ body {
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
   margin-right: 0.4rem;
+  display: inline-block;
 }
 
 .hl-match {
@@ -824,13 +981,17 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 1rem 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .filter-row-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .filter-title {
@@ -839,13 +1000,16 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-tertiary);
-  min-width: 80px;
+  min-width: 65px;
+  flex-shrink: 0;
 }
 
 .characters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
   gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .character-card {
@@ -859,6 +1023,8 @@ body {
   justify-content: space-between;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: var(--shadow-subtle);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .character-card:hover {
@@ -912,6 +1078,7 @@ body {
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .status-pill {
@@ -919,6 +1086,7 @@ body {
   font-weight: 600;
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-pill);
+  white-space: nowrap;
 }
 
 .status-alive { background: var(--status-alive-bg); color: var(--status-alive-text); }
@@ -931,6 +1099,7 @@ body {
   border-radius: var(--radius-pill);
   background: var(--border-subtle);
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .char-summary {
@@ -961,8 +1130,9 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 1rem;
   animation: fadeIn 0.2s ease forwards;
+  box-sizing: border-box;
 }
 
 .modal-sheet {
@@ -976,6 +1146,7 @@ body {
   padding: 2rem;
   position: relative;
   box-shadow: var(--shadow-modal);
+  box-sizing: border-box;
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -1028,6 +1199,7 @@ body {
   font-size: 1.5rem;
   font-weight: 700;
   box-shadow: 0 4px 14px rgba(41, 151, 255, 0.3);
+  flex-shrink: 0;
 }
 
 .modal-name-block h3 {
@@ -1035,6 +1207,7 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+  word-break: break-word;
 }
 
 .modal-name-block p {
@@ -1060,6 +1233,7 @@ body {
   font-size: 0.94rem;
   line-height: 1.6;
   color: var(--text-primary);
+  word-break: break-word;
 }
 
 .relation-tags-wrap {
@@ -1112,33 +1286,20 @@ body {
   opacity: 1;
 }
 
-.mobile-nav-toggle {
-  display: none;
-  position: fixed;
-  bottom: 1.25rem;
-  left: 1.25rem;
-  z-index: 100;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  font-size: 1.2rem;
-  cursor: pointer;
-}
-
+/* ================= MOBILE BREAKPOINTS ================= */
 @media (max-width: 900px) {
-  .mobile-nav-toggle {
+  .mobile-top-header {
     display: flex;
-    align-items: center;
-    justify-content: center;
   }
   
+  .sidebar-close-btn {
+    display: flex;
+  }
+
   .app-sidebar {
     transform: translateX(-100%);
-    box-shadow: 20px 0 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.6);
+    width: 290px;
   }
   
   .app-sidebar.open {
@@ -1147,15 +1308,47 @@ body {
   
   .app-main {
     margin-left: 0;
-    padding: 1.5rem 1rem 5rem 1rem;
+    width: 100%;
+    padding: 1.25rem 1rem 5rem 1rem;
+  }
+
+  .view-header {
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+  }
+
+  .view-title-group h2 {
+    font-size: 1.45rem;
+  }
+  
+  .reader-toolbar {
+    top: 64px;
+    padding: 0.5rem 0.75rem;
   }
   
   .reader-doc {
-    padding: 2rem 1.25rem;
+    padding: 1.75rem 1.15rem 3rem 1.15rem;
+    border-radius: var(--radius-md);
   }
   
   .doc-title {
-    font-size: 1.6rem;
+    font-size: 1.55rem;
+  }
+
+  .doc-thesis {
+    font-size: 0.98rem;
+    padding-left: 0.85rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .doc-content {
+    font-size: 1.02rem;
+    line-height: 1.7;
+  }
+
+  .modal-sheet {
+    padding: 1.5rem 1.15rem;
+    max-height: 90vh;
   }
 }
 
@@ -1169,19 +1362,33 @@ body {
   <!-- Toast Notification -->
   <div class="toast-popup" id="appToast">✓ Скопировано</div>
 
-  <!-- Mobile Sidebar Toggle -->
-  <button class="mobile-nav-toggle" id="mobileToggle" aria-label="Меню">☰</button>
+  <!-- Mobile Top Sticky Header -->
+  <header class="mobile-top-header">
+    <div class="mobile-brand">
+      <div class="app-logo" style="width: 32px; height: 32px; font-size: 1rem;">♟️</div>
+      <div class="mobile-brand-title">Порто-Инверно <span class="app-year-pill">1931</span></div>
+    </div>
+    <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Меню">
+      <span>☰</span> Меню
+    </button>
+  </header>
+
+  <!-- Sidebar Backdrop Overlay -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
   <div class="app-container">
     
     <!-- APPLE FLOATING SIDEBAR -->
     <aside class="app-sidebar" id="appSidebar">
       <div class="sidebar-header">
-        <div class="app-logo">♟️</div>
-        <div class="app-branding">
-          <h1>Порто-Инверно <span class="app-year-pill">1931</span></h1>
-          <span>Хроники детективной драмы</span>
+        <div class="sidebar-header-left">
+          <div class="app-logo">♟️</div>
+          <div class="app-branding">
+            <h1>Порто-Инверно <span class="app-year-pill">1931</span></h1>
+            <span>Хроники детективной драмы</span>
+          </div>
         </div>
+        <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Закрыть">✕</button>
       </div>
 
       <div class="search-box">
@@ -1444,6 +1651,11 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
     mobileToggle: document.getElementById('mobileToggle'),
     progressBar: document.getElementById('readingProgress'),
     toast: document.getElementById('appToast'),
+
+    // Mobile Menu Controls
+    mobileMenuBtn: document.getElementById('mobileMenuBtn'),
+    sidebarCloseBtn: document.getElementById('sidebarCloseBtn'),
+    sidebarBackdrop: document.getElementById('sidebarBackdrop'),
 
     // Badges
     gamesCount: document.getElementById('gamesCount'),
@@ -1987,19 +2199,29 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
 
   // Setup Event Listeners (DRY & Encapsulated)
   function initEvents() {
+    function openSidebar() {
+      if (DOM.sidebar) DOM.sidebar.classList.add('open');
+      if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.classList.add('visible');
+    }
+
+    function closeSidebar() {
+      if (DOM.sidebar) DOM.sidebar.classList.remove('open');
+      if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.classList.remove('visible');
+    }
+
     // Navigation Links
     DOM.navLinks.forEach(link => {
       link.addEventListener('click', () => {
         const tab = link.getAttribute('data-tab');
         Navigation.switchTab(tab);
-        if (window.innerWidth <= 900 && DOM.sidebar) DOM.sidebar.classList.remove('open');
+        closeSidebar();
       });
     });
 
-    // Mobile Sidebar
-    if (DOM.mobileToggle && DOM.sidebar) {
-      DOM.mobileToggle.addEventListener('click', () => DOM.sidebar.classList.toggle('open'));
-    }
+    // Mobile Menu Toggles
+    if (DOM.mobileMenuBtn) DOM.mobileMenuBtn.addEventListener('click', openSidebar);
+    if (DOM.sidebarCloseBtn) DOM.sidebarCloseBtn.addEventListener('click', closeSidebar);
+    if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.addEventListener('click', closeSidebar);
 
     // Global Search
     if (DOM.appSearch) {

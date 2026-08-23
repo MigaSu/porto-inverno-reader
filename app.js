@@ -39,6 +39,11 @@
     progressBar: document.getElementById('readingProgress'),
     toast: document.getElementById('appToast'),
 
+    // Mobile Menu Controls
+    mobileMenuBtn: document.getElementById('mobileMenuBtn'),
+    sidebarCloseBtn: document.getElementById('sidebarCloseBtn'),
+    sidebarBackdrop: document.getElementById('sidebarBackdrop'),
+
     // Badges
     gamesCount: document.getElementById('gamesCount'),
     transcriptsCount: document.getElementById('transcriptsCount'),
@@ -581,19 +586,29 @@
 
   // Setup Event Listeners (DRY & Encapsulated)
   function initEvents() {
+    function openSidebar() {
+      if (DOM.sidebar) DOM.sidebar.classList.add('open');
+      if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.classList.add('visible');
+    }
+
+    function closeSidebar() {
+      if (DOM.sidebar) DOM.sidebar.classList.remove('open');
+      if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.classList.remove('visible');
+    }
+
     // Navigation Links
     DOM.navLinks.forEach(link => {
       link.addEventListener('click', () => {
         const tab = link.getAttribute('data-tab');
         Navigation.switchTab(tab);
-        if (window.innerWidth <= 900 && DOM.sidebar) DOM.sidebar.classList.remove('open');
+        closeSidebar();
       });
     });
 
-    // Mobile Sidebar
-    if (DOM.mobileToggle && DOM.sidebar) {
-      DOM.mobileToggle.addEventListener('click', () => DOM.sidebar.classList.toggle('open'));
-    }
+    // Mobile Menu Toggles
+    if (DOM.mobileMenuBtn) DOM.mobileMenuBtn.addEventListener('click', openSidebar);
+    if (DOM.sidebarCloseBtn) DOM.sidebarCloseBtn.addEventListener('click', closeSidebar);
+    if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.addEventListener('click', closeSidebar);
 
     // Global Search
     if (DOM.appSearch) {
