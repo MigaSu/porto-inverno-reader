@@ -217,6 +217,76 @@
       if (cat.includes('Эйден')) return 'tag-aiden';
       if (cat.includes('Грейвз') || cat.includes('Малкольм')) return 'tag-graves';
       return 'tag-solo';
+    },
+
+    // Чипы участников сцены в шапке карточки цитаты.
+    renderQuoteParticipants(item) {
+      const list = item.participants || [];
+      if (list.length === 0) return '';
+      const chips = list.map(p => `<span class="quote-chip ${p.badgeClass || 'tag-npc'}"><span class="quote-chip-dot"></span>${Utils.escapeHtml(p.name)}</span>`).join('');
+      return `<div class="quote-participants">${chips}</div>`;
+    },
+
+    // Диалог: каждая реплика — отдельный блок «Имя (ремарка): речь».
+    // Никакого markdown в вывод не попадает — парсер уже отдал чистый текст.
+    renderQuoteDialogue(item) {
+      const blocks = item.blocks || [];
+
+      if (blocks.length === 0) {
+        return item.text ? `<div class="quote-narration">${Utils.escapeHtml(item.text)}</div>` : '';
+      }
+
+      const html = blocks.map(b => {
+        if (b.type === 'narration') {
+          return `<div class="quote-narration">${Utils.escapeHtml(b.text)}</div>`;
+        }
+
+        // Цвет строки — по участнику. Имя в реплике может быть короче, чем в чипе
+        // («Адам» в реплике и «Адам Фишер» в чипах), поэтому сверяем и по вхождению.
+        const who = (b.speaker || '').toLowerCase();
+        const list = item.participants || [];
+        const meta = who
+          ? (list.find(p => p.name.toLowerCase() === who)
+            || list.find(p => {
+              const n = p.name.toLowerCase();
+              return n.includes(who) || who.includes(n);
+            }))
+          : null;
+        const cls = b.speaker ? ((meta && meta.badgeClass) || 'tag-npc') : '';
+
+        let head = '';
+        if (b.speaker || b.action) {
+          const name = b.speaker ? `<span class="quote-line-speaker">${Utils.escapeHtml(b.speaker)}</span>` : '';
+          const act = b.action ? `<span class="quote-line-action">(${Utils.escapeHtml(b.action)})</span>` : '';
+          head = `<div>${name}${name && act ? ' ' : ''}${act}</div>`;
+        }
+
+        const body = b.text ? `<div class="quote-line-text">${Utils.escapeHtml(b.text)}</div>` : '';
+        return `<div class="quote-line ${cls}">${head}${body}</div>`;
+      }).join('');
+
+      return `<div class="quote-dialogue">${html}</div>`;
+    },
+
+    // Текст для буфера обмена / Telegram.
+    quoteShareText(item, sessionTitle) {
+      const lines = [];
+      if (item.title) lines.push(item.title);
+      (item.blocks || []).forEach(b => {
+        if (b.type === 'narration') {
+          lines.push('(' + b.text + ')');
+          return;
+        }
+        const head = b.speaker ? (b.action ? b.speaker + ' (' + b.action + ')' : b.speaker) : '';
+        if (head && b.text) lines.push(head + ': «' + b.text + '»');
+        else if (head) lines.push(head);
+        else if (b.text) lines.push('«' + b.text + '»');
+      });
+      if (item.context) lines.push('Контекст: ' + item.context);
+      const who = (item.participants || []).map(p => p.name).join(', ');
+      if (who) lines.push('— ' + who);
+      lines.push('[Порто-Инверно 1931 • ' + sessionTitle + ']');
+      return lines.join('\n');
     }
   };
 
@@ -387,10 +457,12 @@
             if (!matchCategory) return;
 
             const filteredItems = sec.items.filter(item => {
-              const matchAuthor = aFilter === 'all' || item.playerKey === aFilter;
-              const matchSearch = !query || 
-                item.text.toLowerCase().includes(query) || 
-                item.authorRaw.toLowerCase().includes(query) || 
+              const keys = item.participantKeys || [item.playerKey];
+              const matchAuthor = aFilter === 'all' || keys.includes(aFilter);
+              const matchSearch = !query ||
+                item.text.toLowerCase().includes(query) ||
+                (item.title && item.title.toLowerCase().includes(query)) ||
+                (item.participants || []).some(p => p.name.toLowerCase().includes(query)) ||
                 (item.context && item.context.toLowerCase().includes(query));
               return matchAuthor && matchSearch;
             });
@@ -419,19 +491,16 @@
                 contextHtml = `<div class="quote-context"><strong>Контекст:</strong> ${Utils.escapeHtml(item.context)}</div>`;
               }
 
+              const participantsHtml = Utils.renderQuoteParticipants(item);
+              const titleHtml = item.title
+                ? `<div class="quote-scene-title">${Utils.escapeHtml(item.title)}</div>`
+                : '';
+
               card.innerHTML = `
                 <div>
-                  <div class="quote-card-header">
-                    <div class="quote-author-info">
-                      <div class="quote-avatar ${item.badgeClass}">${item.avatarChar}</div>
-                      <div>
-                        <div class="quote-author-name">${Utils.escapeHtml(item.authorRaw)}</div>
-                        <div class="quote-author-role">${item.authorType === 'gm' ? 'Мастер игры' : 'Игрок'}</div>
-                      </div>
-                    </div>
-                    <span class="badge-tag ${item.badgeClass}">${Utils.escapeHtml(item.playerKey)}</span>
-                  </div>
-                  <div class="quote-body">«${Utils.escapeHtml(item.text)}»</div>
+                  ${participantsHtml ? `<div class="quote-card-header">${participantsHtml}</div>` : ''}
+                  ${titleHtml}
+                  ${Utils.renderQuoteDialogue(item)}
                   ${contextHtml}
                 </div>
                 <div class="quote-footer-actions">
@@ -443,7 +512,7 @@
               // Copy button
               card.querySelector('.btn-copy-quote').addEventListener('click', (e) => {
                 e.stopPropagation();
-                const shareText = `«${item.text}»\n— ${item.authorRaw}\n[Порто-Инверно 1931 • ${session.title}]`;
+                const shareText = Utils.quoteShareText(item, session.title);
                 navigator.clipboard.writeText(shareText).then(() => {
                   Utils.showToast('✓ Цитата скопирована для Telegram');
                 }).catch(() => {
@@ -458,8 +527,8 @@
                 if (tIdx !== -1) {
                   UnifiedReader.open('transcript', tIdx, true);
                   if (DOM.readerFilterInput) {
-                    const searchSnippet = item.text.slice(0, 30);
-                    DOM.readerFilterInput.value = searchSnippet;
+                    const seed = item.searchSeed || item.text || '';
+                    DOM.readerFilterInput.value = seed.slice(0, 40);
                     DOM.readerFilterInput.dispatchEvent(new Event('input'));
                   }
                 } else {
@@ -494,8 +563,17 @@
           session.sections.forEach(sec => {
             if (cFilter !== 'all' && sec.category !== cFilter) return;
             sec.items.forEach(item => {
-              if (aFilter !== 'all' && item.playerKey !== aFilter) return;
-              if (query && !item.text.toLowerCase().includes(query) && !item.authorRaw.toLowerCase().includes(query) && (!item.context || !item.context.toLowerCase().includes(query))) return;
+              const keys = item.participantKeys || [item.playerKey];
+              if (aFilter !== 'all' && !keys.includes(aFilter)) return;
+              if (query) {
+                const hay = [
+                  item.text,
+                  item.title || '',
+                  item.context || '',
+                  (item.participants || []).map(p => p.name).join(' ')
+                ].join(' ').toLowerCase();
+                if (!hay.includes(query)) return;
+              }
               hasMatchingQuotes = true;
             });
           });

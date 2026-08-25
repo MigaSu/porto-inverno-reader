@@ -631,6 +631,7 @@ html, body {
 .tag-aiden { background: var(--aiden-soft); color: var(--aiden-color); }
 .tag-graves { background: var(--graves-soft); color: var(--graves-color); }
 .tag-solo { background: rgba(255, 159, 10, 0.12); color: #ff9f0a; }
+.tag-npc { background: rgba(255, 255, 255, 0.07); color: var(--text-secondary); }
 
 .card-title {
   font-size: 1.15rem;
@@ -1427,53 +1428,128 @@ html, body {
 
 .quote-card-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 0.9rem;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
-.quote-author-info {
+.quote-participants {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
-.quote-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  display: flex;
+/* Чип участника: цветная точка + имя в цвете персонажа */
+.quote-chip {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.88rem;
-  color: var(--text-primary);
-  flex-shrink: 0;
-}
-
-.quote-author-name {
-  font-size: 0.9rem;
+  gap: 0.32rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.2;
+  line-height: 1;
+  padding: 0.28rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-family: var(--font-sans);
 }
 
-.quote-author-role {
-  font-size: 0.74rem;
-  color: var(--text-tertiary);
+.quote-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 
-.quote-body {
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  line-height: 1.6;
+.quote-chip.tag-molly { background: var(--molly-soft); color: var(--molly-color); border-color: transparent; }
+.quote-chip.tag-heather { background: var(--heather-soft); color: var(--heather-color); border-color: transparent; }
+.quote-chip.tag-aiden { background: var(--aiden-soft); color: var(--aiden-color); border-color: transparent; }
+.quote-chip.tag-graves { background: var(--graves-soft); color: var(--graves-color); border-color: transparent; }
+.quote-chip.tag-solo { background: rgba(255, 159, 10, 0.12); color: #ff9f0a; border-color: transparent; }
+
+.quote-scene-title {
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
+  line-height: 1.35;
+  margin-bottom: 0.8rem;
+  font-family: var(--font-sans);
+}
+
+/* ---- Диалог ---- */
+
+.quote-dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
   margin-bottom: 1rem;
-  position: relative;
+}
+
+.quote-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--border-subtle);
+}
+
+.quote-line-speaker {
+  font-family: var(--font-sans);
+  font-size: 0.79rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.quote-line.tag-molly { border-left-color: var(--molly-color); }
+.quote-line.tag-heather { border-left-color: var(--heather-color); }
+.quote-line.tag-aiden { border-left-color: var(--aiden-color); }
+.quote-line.tag-graves { border-left-color: var(--graves-color); }
+.quote-line.tag-solo { border-left-color: #ff9f0a; }
+
+.quote-line.tag-molly .quote-line-speaker { color: var(--molly-color); }
+.quote-line.tag-heather .quote-line-speaker { color: var(--heather-color); }
+.quote-line.tag-aiden .quote-line-speaker { color: var(--aiden-color); }
+.quote-line.tag-graves .quote-line-speaker { color: var(--graves-color); }
+.quote-line.tag-solo .quote-line-speaker { color: #ff9f0a; }
+
+/* Ремарка — серым курсивом, не мешает читать речь */
+.quote-line-action {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  letter-spacing: 0;
+}
+
+.quote-line-text {
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: var(--text-primary);
   word-break: break-word;
+}
+
+/* Ремарка без реплики — описание сцены */
+.quote-narration {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  word-break: break-word;
+  padding-left: 0.7rem;
+  border-left: 2px dashed var(--border-subtle);
 }
 
 .quote-context {
