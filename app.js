@@ -121,6 +121,36 @@
     btnFontSerif: document.getElementById('btnFontSerif'),
     btnSizeMinus: document.getElementById('btnSizeMinus'),
     btnSizePlus: document.getElementById('btnSizePlus'),
+    fontSizeDisplay: document.getElementById('fontSizeDisplay'),
+
+    // Notes & Annotations Elements
+    btnNotes: document.getElementById('readerBtnNotes'),
+    notesBadge: document.getElementById('readerNotesBadge'),
+    selectionPill: document.getElementById('noteSelectionPill'),
+    btnCreateNoteFromSelection: document.getElementById('btnCreateNoteFromSelection'),
+    noteModal: document.getElementById('noteModal'),
+    btnCloseNoteModal: document.getElementById('btnCloseNoteModal'),
+    btnCancelNoteModal: document.getElementById('btnCancelNoteModal'),
+    btnSaveNote: document.getElementById('btnSaveNote'),
+    noteQuotePreview: document.getElementById('noteQuotePreview'),
+    noteQuoteText: document.getElementById('noteQuoteText'),
+    noteAuthorChips: document.getElementById('noteAuthorChips'),
+    noteAuthorInput: document.getElementById('noteAuthorInput'),
+    noteColorPicker: document.getElementById('noteColorPicker'),
+    noteTextInput: document.getElementById('noteTextInput'),
+    notesDrawer: document.getElementById('notesDrawer'),
+    notesDrawerBackdrop: document.getElementById('notesDrawerBackdrop'),
+    btnCloseNotesDrawer: document.getElementById('btnCloseNotesDrawer'),
+    notesDrawerCount: document.getElementById('notesDrawerCount'),
+    btnAddGeneralNote: document.getElementById('btnAddGeneralNote'),
+    notesDrawerList: document.getElementById('notesDrawerList'),
+    notePopoverCard: document.getElementById('notePopoverCard'),
+    popoverAvatar: document.getElementById('popoverAvatar'),
+    popoverAuthor: document.getElementById('popoverAuthor'),
+    popoverTime: document.getElementById('popoverTime'),
+    popoverQuote: document.getElementById('popoverQuote'),
+    popoverBody: document.getElementById('popoverBody'),
+    popoverBtnDelete: document.getElementById('popoverBtnDelete'),
 
     // Character Modal
     charModal: document.getElementById('charModal'),
@@ -1645,6 +1675,13 @@
       DOM.btnPrev.disabled = index <= 0;
       DOM.btnNext.disabled = index >= totalCount - 1;
 
+      // Update Notes Counter & Cloud Fetch
+      NotesUI.updateNotesBadge();
+      const currentDocKey = NotesUI.getCurrentDocKey();
+      if (currentDocKey) {
+        AnnotationsService.fetchDocNotes(currentDocKey);
+      }
+
       // Render Body with on-demand fetch
       UnifiedReader.loadContent(docType, doc, index);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1693,6 +1730,675 @@
           bodyHtml += '<p>' + pText.replace(/\n/g, '<br>') + '</p>';
         });
         DOM.readerBody.innerHTML = bodyHtml;
+      }
+
+      // Inject Player Annotations and Stickers
+      setTimeout(() => {
+        NotesUI.renderDocHighlights();
+      }, 70);
+    }
+  };
+
+  // =========================================================================
+  // ANNOTATIONS & PLAYER NOTES SERVICE (CLOUD + LOCAL STORAGE)
+  // =========================================================================
+  const AnnotationsService = {
+    storageKey: 'porto_player_notes_v1',
+    cloudApiUrl: 'https://api.restful-api.dev/objects',
+    cloudIndexKey: 'porto_inverno_notes_registry_v1',
+    cache: {}, // { [docKey]: [Note, Note, ...] }
+
+    init() {
+      try {
+        const local = localStorage.getItem(this.storageKey);
+        if (local) {
+          this.cache = JSON.parse(local) || {};
+        }
+      } catch (e) {
+        console.warn('LocalStorage error:', e);
+        this.cache = {};
+      }
+    },
+
+    saveToLocal() {
+      try {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.cache));
+      } catch (e) {
+        console.warn('Failed to save to localStorage:', e);
+      }
+    },
+
+    getNotes(docKey) {
+      return this.cache[docKey] || [];
+    },
+
+    getDocCount(docKey) {
+      return (this.cache[docKey] || []).length;
+    },
+
+    async addNote(note) {
+      if (!note.docKey) return null;
+      if (!this.cache[note.docKey]) {
+        this.cache[note.docKey] = [];
+      }
+      this.cache[note.docKey].push(note);
+      this.saveToLocal();
+
+      // Background Cloud Sync
+      this.syncNoteToCloud(note).catch(err => console.warn('Cloud sync error:', err));
+      return note;
+    },
+
+    async removeNote(docKey, noteId) {
+      if (!this.cache[docKey]) return false;
+      const idx = this.cache[docKey].findIndex(n => n.id === noteId);
+      if (idx !== -1) {
+        const removed = this.cache[docKey].splice(idx, 1)[0];
+        this.saveToLocal();
+        if (removed && removed.cloudId) {
+          this.deleteFromCloud(removed.cloudId).catch(err => console.warn('Cloud delete error:', err));
+        }
+        return true;
+      }
+      return false;
+    },
+
+    async syncNoteToCloud(note) {
+      try {
+        const payload = {
+          name: 'porto_note_' + note.docKey,
+          data: {
+            noteId: note.id,
+            docKey: note.docKey,
+            docTitle: note.docTitle || '',
+            quote: note.quote || '',
+            author: note.author || 'Зритель',
+            color: note.color || 'amber',
+            text: note.text || '',
+            createdAt: note.createdAt || new Date().toISOString()
+          }
+        };
+
+        const res = await fetch(this.cloudApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.id) {
+            note.cloudId = json.id;
+            this.saveToLocal();
+            this.updateRegistry(json.id);
+          }
+        }
+      } catch (err) {
+        console.warn('Cloud save failed, note kept locally:', err);
+      }
+    },
+
+    async deleteFromCloud(cloudId) {
+      try {
+        await fetch(`${this.cloudApiUrl}/${cloudId}`, { method: 'DELETE' });
+      } catch (e) {
+        console.warn('Cloud delete error:', e);
+      }
+    },
+
+    async updateRegistry(cloudId) {
+      try {
+        let registry = JSON.parse(localStorage.getItem(this.cloudIndexKey) || '[]');
+        if (!registry.includes(cloudId)) {
+          registry.push(cloudId);
+          localStorage.setItem(this.cloudIndexKey, JSON.stringify(registry));
+        }
+      } catch (e) {}
+    },
+
+    async fetchDocNotes(docKey) {
+      // In addition to local notes, tries to sync latest from registry / cloud
+      try {
+        const registry = JSON.parse(localStorage.getItem(this.cloudIndexKey) || '[]');
+        if (registry.length > 0) {
+          const idsQuery = registry.slice(-40).join(',');
+          const res = await fetch(`${this.cloudApiUrl}?id=${idsQuery}`);
+          if (res.ok) {
+            const list = await res.json();
+            if (Array.isArray(list)) {
+              let updated = false;
+              list.forEach(item => {
+                if (item && item.data && item.data.docKey) {
+                  const dK = item.data.docKey;
+                  if (!this.cache[dK]) this.cache[dK] = [];
+                  const exists = this.cache[dK].some(n => n.id === item.data.noteId);
+                  if (!exists) {
+                    this.cache[dK].push({
+                      id: item.data.noteId,
+                      cloudId: item.id,
+                      docKey: item.data.docKey,
+                      docTitle: item.data.docTitle,
+                      quote: item.data.quote,
+                      author: item.data.author,
+                      color: item.data.color,
+                      text: item.data.text,
+                      createdAt: item.data.createdAt
+                    });
+                    updated = true;
+                  }
+                }
+              });
+              if (updated) {
+                this.saveToLocal();
+                NotesUI.renderDocHighlights();
+                NotesUI.updateDrawer();
+                NotesUI.updateNotesBadge();
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Background sync note fetch failed:', e);
+      }
+    }
+  };
+
+  // =========================================================================
+  // NOTES UI & SELECTION CONTROLLER
+  // =========================================================================
+  const NotesUI = {
+    pendingSelection: null,
+    activePopoverNoteId: null,
+
+    init() {
+      AnnotationsService.init();
+
+      // Selection Listener on document & readerBody
+      document.addEventListener('selectionchange', () => this.handleSelectionChange());
+      document.addEventListener('mouseup', () => this.handleSelectionChange());
+      document.addEventListener('touchend', () => setTimeout(() => this.handleSelectionChange(), 120));
+
+      // Click on floating selection pill
+      if (DOM.btnCreateNoteFromSelection) {
+        DOM.btnCreateNoteFromSelection.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openCreateModalFromSelection();
+        });
+      }
+
+      // Toolbar Notes button (opens drawer)
+      if (DOM.btnNotes) {
+        DOM.btnNotes.addEventListener('click', () => this.openDrawer());
+      }
+
+      // Drawer close buttons
+      if (DOM.btnCloseNotesDrawer) {
+        DOM.btnCloseNotesDrawer.addEventListener('click', () => this.closeDrawer());
+      }
+      if (DOM.notesDrawerBackdrop) {
+        DOM.notesDrawerBackdrop.addEventListener('click', () => this.closeDrawer());
+      }
+
+      // Modal close & cancel buttons
+      if (DOM.btnCloseNoteModal) {
+        DOM.btnCloseNoteModal.addEventListener('click', () => this.closeModal());
+      }
+      if (DOM.btnCancelNoteModal) {
+        DOM.btnCancelNoteModal.addEventListener('click', () => this.closeModal());
+      }
+      if (DOM.noteModal) {
+        DOM.noteModal.addEventListener('click', (e) => {
+          if (e.target === DOM.noteModal) this.closeModal();
+        });
+      }
+
+      // Author Chips click
+      if (DOM.noteAuthorChips) {
+        DOM.noteAuthorChips.querySelectorAll('.author-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            DOM.noteAuthorChips.querySelectorAll('.author-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const name = chip.getAttribute('data-name');
+            if (DOM.noteAuthorInput && name) {
+              DOM.noteAuthorInput.value = name;
+              localStorage.setItem('porto_last_author', name);
+            }
+          });
+        });
+      }
+
+      // Author Input change (remember last entered name)
+      if (DOM.noteAuthorInput) {
+        const lastAuthor = localStorage.getItem('porto_last_author');
+        if (lastAuthor) DOM.noteAuthorInput.value = lastAuthor;
+        DOM.noteAuthorInput.addEventListener('input', () => {
+          localStorage.setItem('porto_last_author', DOM.noteAuthorInput.value);
+        });
+      }
+
+      // Color Picker click
+      if (DOM.noteColorPicker) {
+        DOM.noteColorPicker.querySelectorAll('.color-opt').forEach(opt => {
+          opt.addEventListener('click', () => {
+            DOM.noteColorPicker.querySelectorAll('.color-opt').forEach(o => o.classList.remove('active'));
+            opt.classList.add('active');
+          });
+        });
+      }
+
+      // Save Note Button
+      if (DOM.btnSaveNote) {
+        DOM.btnSaveNote.addEventListener('click', () => this.saveNoteFromModal());
+      }
+
+      // Add General Note Button in Drawer
+      if (DOM.btnAddGeneralNote) {
+        DOM.btnAddGeneralNote.addEventListener('click', () => {
+          this.closeDrawer();
+          this.openCreateModalGeneral();
+        });
+      }
+
+      // Popover Delete Button
+      if (DOM.popoverBtnDelete) {
+        DOM.popoverBtnDelete.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (this.activePopoverNoteId) {
+            this.deleteNote(this.activePopoverNoteId);
+            this.hidePopover();
+          }
+        });
+      }
+
+      // Close Popover on clicks outside
+      document.addEventListener('click', (e) => {
+        if (DOM.notePopoverCard && DOM.notePopoverCard.style.display !== 'none') {
+          if (!DOM.notePopoverCard.contains(e.target) && !e.target.closest('.player-note-highlight')) {
+            this.hidePopover();
+          }
+        }
+      });
+    },
+
+    getCurrentDocKey() {
+      if (AppState.activeTab !== 'reader') return null;
+      const { docType, currentIndex } = AppState.reader;
+      let doc = null;
+      if (docType === 'chapter') doc = DataStore.summaries[currentIndex];
+      else if (docType === 'transcript') doc = DataStore.transcripts[currentIndex];
+      else if (docType === 'feedback') doc = DataStore.feedbacks[currentIndex];
+      else if (docType === 'psycho') doc = DataStore.psycho[currentIndex];
+      if (!doc) return null;
+      return docType + ':' + (doc.id || doc.file || doc.title);
+    },
+
+    getCurrentDocTitle() {
+      const { docType, currentIndex } = AppState.reader;
+      let doc = null;
+      if (docType === 'chapter') doc = DataStore.summaries[currentIndex];
+      else if (docType === 'transcript') doc = DataStore.transcripts[currentIndex];
+      else if (docType === 'feedback') doc = DataStore.feedbacks[currentIndex];
+      else if (docType === 'psycho') doc = DataStore.psycho[currentIndex];
+      return doc ? doc.title : 'Документ';
+    },
+
+    handleSelectionChange() {
+      if (AppState.activeTab !== 'reader' || !DOM.readerBody) {
+        this.hideSelectionPill();
+        return;
+      }
+
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+        this.hideSelectionPill();
+        return;
+      }
+
+      const text = sel.toString().trim();
+      if (text.length < 3) {
+        this.hideSelectionPill();
+        return;
+      }
+
+      const range = sel.getRangeAt(0);
+      if (!DOM.readerBody.contains(range.commonAncestorContainer)) {
+        this.hideSelectionPill();
+        return;
+      }
+
+      const rect = range.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        this.hideSelectionPill();
+        return;
+      }
+
+      this.pendingSelection = {
+        text: text,
+        rect: rect
+      };
+
+      this.showSelectionPill(rect);
+    },
+
+    showSelectionPill(rect) {
+      if (!DOM.selectionPill) return;
+      const top = rect.top + window.scrollY;
+      const left = rect.left + rect.width / 2 + window.scrollX;
+      DOM.selectionPill.style.top = top + 'px';
+      DOM.selectionPill.style.left = left + 'px';
+      DOM.selectionPill.style.display = 'flex';
+    },
+
+    hideSelectionPill() {
+      if (DOM.selectionPill) {
+        DOM.selectionPill.style.display = 'none';
+      }
+      this.pendingSelection = null;
+    },
+
+    openCreateModalFromSelection() {
+      if (!this.pendingSelection || !this.pendingSelection.text) return;
+      const quote = this.pendingSelection.text;
+      this.hideSelectionPill();
+      this.openModalWithQuote(quote);
+    },
+
+    openCreateModalGeneral() {
+      this.openModalWithQuote('');
+    },
+
+    openModalWithQuote(quote) {
+      if (!DOM.noteModal) return;
+      if (quote) {
+        DOM.noteQuotePreview.style.display = 'flex';
+        DOM.noteQuoteText.textContent = '«' + quote + '»';
+        DOM.noteQuoteText.setAttribute('data-full-quote', quote);
+      } else {
+        DOM.noteQuotePreview.style.display = 'none';
+        DOM.noteQuoteText.removeAttribute('data-full-quote');
+      }
+
+      if (DOM.noteTextInput) DOM.noteTextInput.value = '';
+      DOM.noteModal.style.display = 'flex';
+      setTimeout(() => {
+        if (DOM.noteTextInput) DOM.noteTextInput.focus();
+      }, 100);
+    },
+
+    closeModal() {
+      if (DOM.noteModal) DOM.noteModal.style.display = 'none';
+    },
+
+    async saveNoteFromModal() {
+      const docKey = this.getCurrentDocKey();
+      if (!docKey) {
+        Utils.showToast('Ошибка: документ не открыт');
+        return;
+      }
+
+      const text = DOM.noteTextInput ? DOM.noteTextInput.value.trim() : '';
+      if (!text) {
+        Utils.showToast('Пожалуйста, введите текст заметки');
+        if (DOM.noteTextInput) DOM.noteTextInput.focus();
+        return;
+      }
+
+      let author = DOM.noteAuthorInput ? DOM.noteAuthorInput.value.trim() : 'Зритель';
+      if (!author) author = 'Зритель';
+
+      const checkedColor = DOM.noteColorPicker ? DOM.noteColorPicker.querySelector('input[name="noteColor"]:checked') : null;
+      const color = checkedColor ? checkedColor.value : 'amber';
+
+      const quote = DOM.noteQuoteText ? (DOM.noteQuoteText.getAttribute('data-full-quote') || '') : '';
+
+      const note = {
+        id: 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        docKey: docKey,
+        docTitle: this.getCurrentDocTitle(),
+        quote: quote,
+        author: author,
+        color: color,
+        text: text,
+        createdAt: new Date().toISOString()
+      };
+
+      await AnnotationsService.addNote(note);
+      this.closeModal();
+      Utils.showToast('📌 Заметка прикреплена!');
+
+      this.renderDocHighlights();
+      this.updateNotesBadge();
+      this.updateDrawer();
+    },
+
+    renderDocHighlights() {
+      const docKey = this.getCurrentDocKey();
+      if (!docKey || !DOM.readerBody) return;
+
+      const notes = AnnotationsService.getNotes(docKey).filter(n => Boolean(n.quote));
+      if (notes.length === 0) return;
+
+      // Wrap text occurrences safely without corrupting HTML
+      notes.forEach(note => {
+        this.highlightQuoteInBody(note);
+      });
+    },
+
+    highlightQuoteInBody(note) {
+      if (!note.quote || !DOM.readerBody) return;
+      const quoteClean = note.quote.trim();
+      if (quoteClean.length < 3) return;
+
+      // Check if already highlighted
+      if (DOM.readerBody.querySelector(`.player-note-highlight[data-note-id="${note.id}"]`)) return;
+
+      const treeWalker = document.createTreeWalker(
+        DOM.readerBody,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node) {
+            if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+            if (node.parentElement && (node.parentElement.closest('.player-note-highlight') || node.parentElement.tagName === 'SCRIPT' || node.parentElement.tagName === 'STYLE')) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+      );
+
+      let textNode = null;
+      while ((textNode = treeWalker.nextNode())) {
+        const idx = textNode.textContent.indexOf(quoteClean);
+        if (idx !== -1) {
+          const matchRange = document.createRange();
+          matchRange.setStart(textNode, idx);
+          matchRange.setEnd(textNode, idx + quoteClean.length);
+
+          const mark = document.createElement('mark');
+          mark.className = `player-note-highlight note-color-${note.color || 'amber'}`;
+          mark.setAttribute('data-note-id', note.id);
+          mark.title = `Заметка от ${note.author}`;
+
+          try {
+            matchRange.surroundContents(mark);
+            const pin = document.createElement('span');
+            pin.className = 'note-pin-badge';
+            pin.textContent = '📌';
+            mark.appendChild(pin);
+
+            mark.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.showPopoverForHighlight(mark, note);
+            });
+            mark.addEventListener('mouseenter', (e) => {
+              this.showPopoverForHighlight(mark, note);
+            });
+          } catch (e) {
+            // Range spans multiple nodes, skip
+          }
+          break;
+        }
+      }
+    },
+
+    showPopoverForHighlight(markEl, note) {
+      if (!DOM.notePopoverCard) return;
+      this.activePopoverNoteId = note.id;
+
+      // Set avatar icon
+      let avatar = '👤';
+      if (note.author.includes('Молли') || note.author.includes('🥀')) avatar = '🥀';
+      else if (note.author.includes('Хизер') || note.author.includes('❄️')) avatar = '❄️';
+      else if (note.author.includes('Эйден') || note.author.includes('⚖️')) avatar = '⚖️';
+      else if (note.author.includes('Грейвз') || note.author.includes('🕯️')) avatar = '🕯️';
+      else if (note.author.includes('Мастер') || note.author.includes('🎭')) avatar = '🎭';
+      else if (note.author.includes('Зритель') || note.author.includes('👀')) avatar = '👀';
+
+      if (DOM.popoverAvatar) DOM.popoverAvatar.textContent = avatar;
+      if (DOM.popoverAuthor) DOM.popoverAuthor.textContent = note.author;
+
+      const dateStr = note.createdAt ? new Date(note.createdAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Сегодня';
+      if (DOM.popoverTime) DOM.popoverTime.textContent = dateStr;
+
+      if (DOM.popoverQuote) {
+        if (note.quote) {
+          DOM.popoverQuote.style.display = 'block';
+          DOM.popoverQuote.textContent = '«' + note.quote + '»';
+        } else {
+          DOM.popoverQuote.style.display = 'none';
+        }
+      }
+
+      if (DOM.popoverBody) DOM.popoverBody.textContent = note.text;
+
+      // Position Popover
+      const rect = markEl.getBoundingClientRect();
+      const top = rect.bottom + window.scrollY;
+      const left = rect.left + rect.width / 2 + window.scrollX;
+
+      DOM.notePopoverCard.style.top = top + 'px';
+      DOM.notePopoverCard.style.left = left + 'px';
+      DOM.notePopoverCard.style.display = 'block';
+    },
+
+    hidePopover() {
+      if (DOM.notePopoverCard) {
+        DOM.notePopoverCard.style.display = 'none';
+      }
+      this.activePopoverNoteId = null;
+    },
+
+    updateNotesBadge() {
+      const docKey = this.getCurrentDocKey();
+      if (!docKey || !DOM.notesBadge) return;
+      const count = AnnotationsService.getDocCount(docKey);
+      DOM.notesBadge.textContent = count;
+      DOM.notesBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+      if (DOM.notesDrawerCount) {
+        DOM.notesDrawerCount.textContent = count + ' ' + Utils.pluralize(count, ['заметка', 'заметки', 'заметок']);
+      }
+    },
+
+    openDrawer() {
+      if (!DOM.notesDrawer) return;
+      this.updateDrawer();
+      DOM.notesDrawer.style.display = 'flex';
+      if (DOM.notesDrawerBackdrop) DOM.notesDrawerBackdrop.style.display = 'block';
+    },
+
+    closeDrawer() {
+      if (DOM.notesDrawer) DOM.notesDrawer.style.display = 'none';
+      if (DOM.notesDrawerBackdrop) DOM.notesDrawerBackdrop.style.display = 'none';
+    },
+
+    updateDrawer() {
+      const docKey = this.getCurrentDocKey();
+      if (!docKey || !DOM.notesDrawerList) return;
+
+      const notes = AnnotationsService.getNotes(docKey);
+      this.updateNotesBadge();
+
+      if (notes.length === 0) {
+        DOM.notesDrawerList.innerHTML = `
+          <div class="drawer-empty-state">
+            <span style="font-size:2.5rem; display:block; margin-bottom:0.75rem;">📝</span>
+            <strong>Заметок пока нет</strong>
+            <p style="margin-top:0.4rem; color:var(--text-tertiary); font-size:0.82rem;">Выделите любую фразу в тексте или нажмите кнопку выше, чтобы оставить первую заметку!</p>
+          </div>
+        `;
+        return;
+      }
+
+      DOM.notesDrawerList.innerHTML = '';
+      notes.forEach(note => {
+        const card = document.createElement('div');
+        card.className = `drawer-note-card border-color-${note.color || 'amber'}`;
+
+        const dateStr = note.createdAt ? new Date(note.createdAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+
+        card.innerHTML = `
+          <div class="drawer-note-header">
+            <span class="drawer-note-author">${Utils.escapeHtml(note.author)}</span>
+            <span class="drawer-note-time">${dateStr}</span>
+          </div>
+          ${note.quote ? `<div class="drawer-note-quote">«${Utils.escapeHtml(note.quote)}»</div>` : ''}
+          <div class="drawer-note-text">${Utils.escapeHtml(note.text)}</div>
+          <div class="drawer-note-actions">
+            ${note.quote ? `<button class="btn-goto-quote" data-note-id="${note.id}">🎯 Найти в тексте</button>` : '<span></span>'}
+            <button class="btn-delete-note" data-note-id="${note.id}">🗑️ Удалить</button>
+          </div>
+        `;
+
+        const gotoBtn = card.querySelector('.btn-goto-quote');
+        if (gotoBtn) {
+          gotoBtn.addEventListener('click', () => {
+            this.closeDrawer();
+            const mark = DOM.readerBody.querySelector(`.player-note-highlight[data-note-id="${note.id}"]`);
+            if (mark) {
+              mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              mark.classList.add('active-note-target');
+              setTimeout(() => mark.classList.remove('active-note-target'), 3600);
+              this.showPopoverForHighlight(mark, note);
+            } else {
+              Utils.showToast('Фраза находится в тексте');
+            }
+          });
+        }
+
+        const delBtn = card.querySelector('.btn-delete-note');
+        if (delBtn) {
+          delBtn.addEventListener('click', () => {
+            this.deleteNote(note.id);
+          });
+        }
+
+        DOM.notesDrawerList.appendChild(card);
+      });
+    },
+
+    async deleteNote(noteId) {
+      const docKey = this.getCurrentDocKey();
+      if (!docKey) return;
+      if (confirm('Удалить эту заметку?')) {
+        await AnnotationsService.removeNote(docKey, noteId);
+        Utils.showToast('Заметка удалена');
+        
+        // Remove mark element
+        const mark = DOM.readerBody ? DOM.readerBody.querySelector(`.player-note-highlight[data-note-id="${noteId}"]`) : null;
+        if (mark) {
+          const parent = mark.parentNode;
+          while (mark.firstChild) {
+            if (mark.firstChild.classList && mark.firstChild.classList.contains('note-pin-badge')) {
+              mark.removeChild(mark.firstChild);
+            } else {
+              parent.insertBefore(mark.firstChild, mark);
+            }
+          }
+          parent.removeChild(mark);
+        }
+
+        this.updateNotesBadge();
+        this.updateDrawer();
       }
     }
   };
@@ -2081,6 +2787,9 @@
         restoreFromHash(hash);
       }
     });
+
+    // Initialize Notes & Annotations Controller
+    NotesUI.init();
   }
 
   function restoreFromHash(hash) {
