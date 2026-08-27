@@ -2146,13 +2146,15 @@
 
       if (DOM.noteTextInput) DOM.noteTextInput.value = '';
       DOM.noteModal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
       setTimeout(() => {
-        if (DOM.noteTextInput) DOM.noteTextInput.focus();
-      }, 100);
+        if (DOM.noteTextInput) DOM.noteTextInput.focus({ preventScroll: true });
+      }, 50);
     },
 
     closeModal() {
       if (DOM.noteModal) DOM.noteModal.style.display = 'none';
+      document.body.style.overflow = '';
     },
 
     async saveNoteFromModal() {
