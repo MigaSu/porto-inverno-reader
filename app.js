@@ -1873,6 +1873,20 @@
     cache: {}, // { [docKey]: [Note, Note, ...] }
     isSyncing: false,
 
+    deletedIdsKey: 'porto_deleted_note_ids_v1',
+    getDeletedIds() {
+      try {
+        return JSON.parse(localStorage.getItem(this.deletedIdsKey)) || [];
+      } catch (e) { return []; }
+    },
+    markDeleted(noteId) {
+      const ids = this.getDeletedIds();
+      if (!ids.includes(noteId)) {
+        ids.push(noteId);
+        localStorage.setItem(this.deletedIdsKey, JSON.stringify(ids.slice(-300)));
+      }
+    },
+
     init() {
       try {
         const local = localStorage.getItem(this.storageKey);
@@ -1887,10 +1901,10 @@
       // Initial cloud sync
       this.syncFromCloud();
 
-      // Periodic background sync every 20 seconds
+      // Periodic background sync every 15 seconds
       setInterval(() => {
         this.syncFromCloud();
-      }, 20000);
+      }, 15000);
     },
 
     saveToLocal() {
@@ -1931,6 +1945,7 @@
     },
 
     async removeNote(docKey, noteId) {
+      this.markDeleted(noteId);
       if (!this.cache[docKey]) return false;
       const idx = this.cache[docKey].findIndex(n => n.id === noteId);
       if (idx !== -1) {
@@ -1951,8 +1966,12 @@
           const json = await res.json();
           const cloudNotes = json?.data?.notes || [];
           if (Array.isArray(cloudNotes)) {
+            const deletedIds = new Set(this.getDeletedIds());
             let hasNew = false;
-            cloudNotes.forEach(cn => {
+
+            const validCloudNotes = cloudNotes.filter(cn => cn && cn.id && !deletedIds.has(cn.id));
+
+            validCloudNotes.forEach(cn => {
               if (cn && cn.docKey && cn.id) {
                 if (!this.cache[cn.docKey]) this.cache[cn.docKey] = [];
                 const localIdx = this.cache[cn.docKey].findIndex(n => n.id === cn.id);
@@ -1965,13 +1984,23 @@
               }
             });
 
-            if (hasNew) {
-              this.saveToLocal();
-              if (AppState.activeTab === 'reader') {
-                NotesUI.renderDocHighlights();
-                NotesUI.updateNotesBadge();
-                NotesUI.updateDrawer();
-              }
+            // Clean local cache of deleted IDs
+            Object.keys(this.cache).forEach(dk => {
+              this.cache[dk] = this.cache[dk].filter(n => !deletedIds.has(n.id));
+            });
+
+            this.saveToLocal();
+
+            if (AppState.activeTab === 'reader') {
+              NotesUI.renderDocHighlights();
+              NotesUI.updateNotesBadge();
+              NotesUI.updateDrawer();
+            }
+            if (AppState.activeTab === 'all-notes') {
+              Grids.renderAllNotes();
+            }
+            if (DOM.allNotesCount) {
+              DOM.allNotesCount.textContent = this.getAllNotesFlat().length;
             }
           }
         }
@@ -1993,15 +2022,18 @@
           }
         } catch(e) {}
 
+        const deletedIds = new Set(this.getDeletedIds());
+        cloudNotes = cloudNotes.filter(n => n && n.id && !deletedIds.has(n.id));
+
         const exists = cloudNotes.some(n => n.id === note.id);
-        if (!exists) {
+        if (!exists && !deletedIds.has(note.id)) {
           cloudNotes.push(note);
         }
 
         // Merge all local notes
         const localAll = this.getAllNotesFlat();
         localAll.forEach(ln => {
-          if (!cloudNotes.some(cn => cn.id === ln.id)) {
+          if (!deletedIds.has(ln.id) && !cloudNotes.some(cn => cn.id === ln.id)) {
             cloudNotes.push(ln);
           }
         });
@@ -2025,7 +2057,7 @@
         if (getRes.ok) {
           const getJson = await getRes.json();
           let cloudNotes = getJson?.data?.notes || [];
-          cloudNotes = cloudNotes.filter(n => n.id !== noteId);
+          cloudNotes = cloudNotes.filter(n => n && n.id !== noteId);
 
           await fetch(this.cloudApiUrl, {
             method: 'PUT',
@@ -2217,14 +2249,16 @@
       }
 
       const range = sel.getRangeAt(0);
-      const readerDoc = document.querySelector('.reader-doc');
-      if (!readerDoc || !readerDoc.contains(range.commonAncestorContainer)) {
+      const containerNode = range.commonAncestorContainer;
+      const ancestor = containerNode.nodeType === 1 ? containerNode : containerNode.parentElement;
+      const readerDoc = document.querySelector('.reader-doc') || DOM.viewReader;
+      if (!readerDoc || !readerDoc.contains(ancestor)) {
         this.hideSelectionPill();
         return;
       }
 
       const rect = range.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
+      if (rect.width === 0 && rect.height === 0) {
         this.hideSelectionPill();
         return;
       }
