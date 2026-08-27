@@ -1864,30 +1864,31 @@
   };
 
   // =========================================================================
-  // ANNOTATIONS & PLAYER NOTES SERVICE (GLOBAL SHARED CLOUD + LOCAL CACHE)
+  // ANNOTATIONS & PLAYER NOTES SERVICE (GLOBAL REALTIME SSE + LOCAL CACHE)
   // =========================================================================
   const AnnotationsService = {
     storageKey: 'porto_player_notes_v1',
-    sharedCloudId: 'ff8081819ff5b11001a04565f6893ca5',
-    cloudApiUrl: 'https://api.restful-api.dev/objects/ff8081819ff5b11001a04565f6893ca5',
+    topicUrl: 'https://ntfy.sh/porto_inverno_shared_notes_prod_991823',
     cache: {}, // { [docKey]: [Note, Note, ...] }
-    isSyncing: false,
-
+    eventSource: null,
     deletedIdsKey: 'porto_deleted_note_ids_v1',
+
     getDeletedIds() {
       try {
         return JSON.parse(localStorage.getItem(this.deletedIdsKey)) || [];
       } catch (e) { return []; }
     },
+
     markDeleted(noteId) {
       const ids = this.getDeletedIds();
       if (!ids.includes(noteId)) {
         ids.push(noteId);
-        localStorage.setItem(this.deletedIdsKey, JSON.stringify(ids.slice(-300)));
+        localStorage.setItem(this.deletedIdsKey, JSON.stringify(ids.slice(-500)));
       }
     },
 
     init() {
+      // 1. Load LocalStorage cache
       try {
         const local = localStorage.getItem(this.storageKey);
         if (local) {
@@ -1898,13 +1899,42 @@
         this.cache = {};
       }
 
-      // Initial cloud sync
+      // 2. Initial cloud catch-up
       this.syncFromCloud();
 
-      // Periodic background sync every 15 seconds
-      setInterval(() => {
-        this.syncFromCloud();
-      }, 15000);
+      // 3. Connect real-time Server-Sent Events stream (instant millisecond sync)
+      this.connectRealtimeStream();
+    },
+
+    connectRealtimeStream() {
+      try {
+        if (typeof EventSource !== 'undefined') {
+          if (this.eventSource) {
+            try { this.eventSource.close(); } catch (e) {}
+          }
+          this.eventSource = new EventSource(this.topicUrl + '/sse');
+          this.eventSource.onmessage = (event) => {
+            try {
+              const raw = JSON.parse(event.data);
+              if (raw.event === 'message' && raw.message) {
+                const payload = JSON.parse(raw.message);
+                if (payload.action === 'add' && payload.data) {
+                  this.applyRemoteNote(payload.data);
+                } else if (payload.action === 'delete' && payload.data) {
+                  this.applyRemoteDelete(payload.data.docKey, payload.data.id);
+                }
+              }
+            } catch (e) {
+              console.warn('SSE message parse error:', e);
+            }
+          };
+          this.eventSource.onerror = () => {
+            // Auto-reconnection handled natively by EventSource
+          };
+        }
+      } catch (err) {
+        console.warn('EventSource initialization error:', err);
+      }
     },
 
     saveToLocal() {
@@ -1939,8 +1969,8 @@
       this.cache[note.docKey].push(note);
       this.saveToLocal();
 
-      // Push immediately to global cloud
-      this.pushNoteToCloud(note).catch(err => console.warn('Cloud sync error:', err));
+      // Broadcast immediately across all devices
+      this.broadcastAction('add', note);
       return note;
     },
 
@@ -1951,125 +1981,106 @@
       if (idx !== -1) {
         this.cache[docKey].splice(idx, 1);
         this.saveToLocal();
-        this.deleteNoteFromCloud(noteId).catch(err => console.warn('Cloud delete error:', err));
+        this.broadcastAction('delete', { docKey, id: noteId });
         return true;
       }
       return false;
     },
 
-    async syncFromCloud() {
-      if (this.isSyncing) return;
-      this.isSyncing = true;
+    broadcastAction(action, data) {
       try {
-        const res = await fetch(this.cloudApiUrl);
+        fetch(this.topicUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain', 'Title': 'Porto Note', 'Tags': 'pushpin' },
+          body: JSON.stringify({ action, data, time: Date.now() })
+        }).catch(err => console.warn('Broadcast failed:', err));
+      } catch (err) {
+        console.warn('Broadcast exception:', err);
+      }
+    },
+
+    applyRemoteNote(note) {
+      if (!note || !note.docKey || !note.id) return;
+      const deletedIds = new Set(this.getDeletedIds());
+      if (deletedIds.has(note.id)) return;
+
+      if (!this.cache[note.docKey]) this.cache[note.docKey] = [];
+      const localIdx = this.cache[note.docKey].findIndex(n => n.id === note.id);
+      if (localIdx === -1) {
+        this.cache[note.docKey].push(note);
+      } else {
+        this.cache[note.docKey][localIdx] = { ...this.cache[note.docKey][localIdx], ...note };
+      }
+
+      this.saveToLocal();
+      this.updateUIAfterSync();
+    },
+
+    applyRemoteDelete(docKey, noteId) {
+      this.markDeleted(noteId);
+      if (this.cache[docKey]) {
+        this.cache[docKey] = this.cache[docKey].filter(n => n.id !== noteId);
+        this.saveToLocal();
+        this.updateUIAfterSync();
+      }
+    },
+
+    async syncFromCloud() {
+      try {
+        const res = await fetch(this.topicUrl + '/json?poll=1&since=24h');
         if (res.ok) {
-          const json = await res.json();
-          const cloudNotes = json?.data?.notes || [];
-          if (Array.isArray(cloudNotes)) {
-            const deletedIds = new Set(this.getDeletedIds());
-            let hasNew = false;
+          const text = await res.text();
+          const lines = text.trim().split('\n').filter(Boolean);
+          const deletedIds = new Set(this.getDeletedIds());
 
-            const validCloudNotes = cloudNotes.filter(cn => cn && cn.id && !deletedIds.has(cn.id));
-
-            validCloudNotes.forEach(cn => {
-              if (cn && cn.docKey && cn.id) {
-                if (!this.cache[cn.docKey]) this.cache[cn.docKey] = [];
-                const localIdx = this.cache[cn.docKey].findIndex(n => n.id === cn.id);
-                if (localIdx === -1) {
-                  this.cache[cn.docKey].push(cn);
-                  hasNew = true;
-                } else {
-                  this.cache[cn.docKey][localIdx] = { ...this.cache[cn.docKey][localIdx], ...cn };
+          lines.forEach(l => {
+            try {
+              const raw = JSON.parse(l);
+              if (raw.event === 'message' && raw.message) {
+                const payload = JSON.parse(raw.message);
+                if (payload.action === 'add' && payload.data && payload.data.id && !deletedIds.has(payload.data.id)) {
+                  const note = payload.data;
+                  if (!this.cache[note.docKey]) this.cache[note.docKey] = [];
+                  const localIdx = this.cache[note.docKey].findIndex(n => n.id === note.id);
+                  if (localIdx === -1) {
+                    this.cache[note.docKey].push(note);
+                  } else {
+                    this.cache[note.docKey][localIdx] = { ...this.cache[note.docKey][localIdx], ...note };
+                  }
+                } else if (payload.action === 'delete' && payload.data && payload.data.id) {
+                  this.markDeleted(payload.data.id);
+                  if (this.cache[payload.data.docKey]) {
+                    this.cache[payload.data.docKey] = this.cache[payload.data.docKey].filter(n => n.id !== payload.data.id);
+                  }
                 }
               }
-            });
+            } catch (e) {}
+          });
 
-            // Clean local cache of deleted IDs
-            Object.keys(this.cache).forEach(dk => {
-              this.cache[dk] = this.cache[dk].filter(n => !deletedIds.has(n.id));
-            });
+          // Clean local cache of deleted IDs
+          Object.keys(this.cache).forEach(dk => {
+            this.cache[dk] = this.cache[dk].filter(n => !deletedIds.has(n.id));
+          });
 
-            this.saveToLocal();
-
-            if (AppState.activeTab === 'reader') {
-              NotesUI.renderDocHighlights();
-              NotesUI.updateNotesBadge();
-              NotesUI.updateDrawer();
-            }
-            if (AppState.activeTab === 'all-notes') {
-              Grids.renderAllNotes();
-            }
-            if (DOM.allNotesCount) {
-              DOM.allNotesCount.textContent = this.getAllNotesFlat().length;
-            }
-          }
+          this.saveToLocal();
+          this.updateUIAfterSync();
         }
       } catch (err) {
         console.warn('Sync from cloud failed, using offline cache:', err);
-      } finally {
-        this.isSyncing = false;
       }
     },
 
-    async pushNoteToCloud(note) {
-      try {
-        let cloudNotes = [];
-        try {
-          const getRes = await fetch(this.cloudApiUrl);
-          if (getRes.ok) {
-            const getJson = await getRes.json();
-            cloudNotes = getJson?.data?.notes || [];
-          }
-        } catch(e) {}
-
-        const deletedIds = new Set(this.getDeletedIds());
-        cloudNotes = cloudNotes.filter(n => n && n.id && !deletedIds.has(n.id));
-
-        const exists = cloudNotes.some(n => n.id === note.id);
-        if (!exists && !deletedIds.has(note.id)) {
-          cloudNotes.push(note);
-        }
-
-        // Merge all local notes
-        const localAll = this.getAllNotesFlat();
-        localAll.forEach(ln => {
-          if (!deletedIds.has(ln.id) && !cloudNotes.some(cn => cn.id === ln.id)) {
-            cloudNotes.push(ln);
-          }
-        });
-
-        await fetch(this.cloudApiUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: 'PORTO_INVERNO_PUBLIC_NOTES_STORE_V1',
-            data: { notes: cloudNotes }
-          })
-        });
-      } catch (err) {
-        console.warn('Cloud sync push failed:', err);
+    updateUIAfterSync() {
+      if (AppState.activeTab === 'reader') {
+        NotesUI.renderDocHighlights();
+        NotesUI.updateNotesBadge();
+        NotesUI.updateDrawer();
       }
-    },
-
-    async deleteNoteFromCloud(noteId) {
-      try {
-        const getRes = await fetch(this.cloudApiUrl);
-        if (getRes.ok) {
-          const getJson = await getRes.json();
-          let cloudNotes = getJson?.data?.notes || [];
-          cloudNotes = cloudNotes.filter(n => n && n.id !== noteId);
-
-          await fetch(this.cloudApiUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: 'PORTO_INVERNO_PUBLIC_NOTES_STORE_V1',
-              data: { notes: cloudNotes }
-            })
-          });
-        }
-      } catch (err) {
-        console.warn('Cloud note delete failed:', err);
+      if (AppState.activeTab === 'all-notes') {
+        Grids.renderAllNotes();
+      }
+      if (DOM.allNotesCount) {
+        DOM.allNotesCount.textContent = this.getAllNotesFlat().length;
       }
     },
 
