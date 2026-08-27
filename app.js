@@ -176,6 +176,15 @@
       setTimeout(() => DOM.toast.classList.remove('visible'), 2400);
     },
 
+    pluralize(n, forms) {
+      n = Math.abs(n) % 100;
+      const n1 = n % 10;
+      if (n > 10 && n < 20) return forms[2];
+      if (n1 > 1 && n1 < 5) return forms[1];
+      if (n1 === 1) return forms[0];
+      return forms[2];
+    },
+
     escapeHtml(str) {
       return (str || '')
         .replace(/&/g, '&amp;')
@@ -1758,6 +1767,23 @@
         console.warn('LocalStorage error:', e);
         this.cache = {};
       }
+
+      // Seed initial sample note if empty
+      const sampleKey = 'chapter:2026-08-20 Молли и Хизер, ч.12';
+      if (!this.cache[sampleKey] || this.cache[sampleKey].length === 0) {
+        this.cache[sampleKey] = [
+          {
+            id: 'note_canon_1',
+            docKey: sampleKey,
+            docTitle: '2026-08-20 Молли и Хизер, ч.12',
+            quote: 'Я за всю жизнь прочитал всего пять книг. Но в одной из них писали про эффект бабочки.',
+            author: '❄️ Хизер',
+            color: 'amber',
+            text: 'Один из самых трогательных диалогов Вани и Хизер в особняке.',
+            createdAt: '1931-10-25T20:30:00.000Z'
+          }
+        ];
+      }
     },
 
     saveToLocal() {
@@ -2210,17 +2236,18 @@
       while ((textNode = treeWalker.nextNode())) {
         const idx = textNode.textContent.indexOf(quoteClean);
         if (idx !== -1) {
-          const matchRange = document.createRange();
-          matchRange.setStart(textNode, idx);
-          matchRange.setEnd(textNode, idx + quoteClean.length);
-
-          const mark = document.createElement('mark');
-          mark.className = `player-note-highlight note-color-${note.color || 'amber'}`;
-          mark.setAttribute('data-note-id', note.id);
-          mark.title = `Заметка от ${note.author}`;
-
           try {
-            matchRange.surroundContents(mark);
+            const afterNode = textNode.splitText(idx + quoteClean.length);
+            const targetNode = textNode.splitText(idx);
+
+            const mark = document.createElement('mark');
+            mark.className = `player-note-highlight note-color-${note.color || 'amber'}`;
+            mark.setAttribute('data-note-id', note.id);
+            mark.title = `Заметка от ${note.author}`;
+
+            targetNode.parentNode.insertBefore(mark, targetNode);
+            mark.appendChild(targetNode);
+
             const pin = document.createElement('span');
             pin.className = 'note-pin-badge';
             pin.textContent = '📌';
@@ -2234,7 +2261,7 @@
               this.showPopoverForHighlight(mark, note);
             });
           } catch (e) {
-            // Range spans multiple nodes, skip
+            console.warn('Highlight injection skipped:', e);
           }
           break;
         }
