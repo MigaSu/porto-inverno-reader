@@ -1,13 +1,12 @@
-
 /**
  * PORTO-INVERNO | UNIFIED APPLICATION ARCHITECTURE
- * Fully Encapsulated & DRY-Compliant
+ * Fully Encapsulated, Modular & DRY-Compliant
  */
 (function() {
   'use strict';
 
   // Master Data Store
-  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], quotes: [] };
+  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], quotes: [], psycho: [], sanityTimeline: {}, relationships: {}, calendar: { days: {}, monthInfo: {} } };
 
   // Application State
   const AppState = {
@@ -20,13 +19,21 @@
       charFaction: 'all',
       quotesStoryline: 'all',
       quotesAuthor: 'all',
-      quotesCategory: 'all'
+      quotesCategory: 'all',
+      psychoChar: 'all',
+      calendarBranch: 'all',
+      calendarThreat: 'all'
     },
+    sanityHero: 'molly',
+    sanitySelectedPointIndex: 0,
+    selectedRelationshipPair: 'molly-heather',
+    selectedRelationshipStageIndex: 0,
+    selectedCalendarDate: '1931-10-14',
     quotesSelectedSession: null,
     searchQuery: '',
     transcriptQuery: '',
     reader: {
-      docType: null, // 'chapter' | 'transcript' | 'feedback'
+      docType: null, // 'chapter' | 'transcript' | 'feedback' | 'psycho'
       sourceTab: 'games',
       currentIndex: -1,
       fontSize: 1.08
@@ -54,12 +61,24 @@
     feedbacksCount: document.getElementById('feedbacksCount'),
     charsCount: document.getElementById('charsCount'),
     quotesCount: document.getElementById('quotesCount'),
+    psychoCount: document.getElementById('psychoCount'),
+    sanityCount: document.getElementById('sanityCount'),
+    relationshipsCount: document.getElementById('relationshipsCount'),
+    calendarCount: document.getElementById('calendarCount'),
 
-    // Grids
+    // Grids & Dashboards
     gamesGrid: document.getElementById('gamesGrid'),
     transcriptsGrid: document.getElementById('transcriptsGrid'),
     feedbacksGrid: document.getElementById('feedbacksGrid'),
     charactersGrid: document.getElementById('charactersGrid'),
+    psychoGrid: document.getElementById('psychoGrid'),
+    sanityHeroControls: document.getElementById('sanityHeroControls'),
+    sanityDashboardContainer: document.getElementById('sanityDashboardContainer'),
+    relationshipPairControls: document.getElementById('relationshipPairControls'),
+    relationshipsContainer: document.getElementById('relationshipsContainer'),
+    calendarBranchControls: document.getElementById('calendarBranchControls'),
+    calendarThreatControls: document.getElementById('calendarThreatControls'),
+    calendarContainer: document.getElementById('calendarContainer'),
 
     // Quotes Controls and Views
     quotesGrid: document.getElementById('quotesGamesView'),
@@ -80,6 +99,7 @@
     feedbackCharControls: document.getElementById('feedbackCharControls'),
     statusControls: document.getElementById('statusControls'),
     factionControls: document.getElementById('factionControls'),
+    psychoCharControls: document.getElementById('psychoCharControls'),
 
     // Unified Reader
     viewReader: document.getElementById('view-reader'),
@@ -140,24 +160,104 @@
 
     parseMarkdown(md) {
       if (!md) return '';
-      let text = md.replace(/^#\s+[^\n]+\n+/, '');
+      let raw = md.replace(/^#\s+[^\n]+\n+/, '');
 
-      return text.split(/\n\s*\n/).map(p => {
-        let t = p.trim();
-        if (!t) return '';
-        if (t.startsWith('> ')) {
-          return '<blockquote>' + Utils.formatInline(t.replace(/^>\s+/, '')) + '</blockquote>';
+      const blocks = raw.split(/\r?\n\s*\r?\n/);
+      let html = '';
+
+      for (let block of blocks) {
+        let b = block.trim();
+        if (!b) continue;
+
+        // Horizontal rule
+        if (/^---+$/.test(b) || /^\*\*\*+$/.test(b)) {
+          html += '<hr style="border:0; border-top:1px solid var(--border-subtle); margin: 2rem 0;">';
+          continue;
         }
-        if (t.startsWith('## ') || t.startsWith('### ')) {
-          return '<h3 style="font-size: 1.3rem; margin: 1.8rem 0 0.8rem 0; font-weight: 600; color: var(--text-primary);">' + Utils.formatInline(t.replace(/^#+\s+/, '')) + '</h3>';
+
+        // Headers
+        if (b.startsWith('#### ')) {
+          html += '<h4 style="font-size: 1.08rem; margin: 1.5rem 0 0.5rem 0; font-weight: 600; color: var(--gold-accent);">' + Utils.formatInline(b.replace(/^####\s+/, '')) + '</h4>';
+          continue;
         }
-        return '<p>' + Utils.formatInline(t) + '</p>';
-      }).join('');
+        if (b.startsWith('### ')) {
+          html += '<h3 style="font-size: 1.25rem; margin: 1.8rem 0 0.6rem 0; font-weight: 600; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.35rem;">' + Utils.formatInline(b.replace(/^###\s+/, '')) + '</h3>';
+          continue;
+        }
+        if (b.startsWith('## ')) {
+          html += '<h2 style="font-size: 1.45rem; margin: 2.2rem 0 0.75rem 0; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border-card); padding-bottom: 0.5rem;">' + Utils.formatInline(b.replace(/^##\s+/, '')) + '</h2>';
+          continue;
+        }
+
+        // Blockquote
+        if (b.startsWith('> ')) {
+          const lines = b.split(/\r?\n/).map(l => l.replace(/^>\s*/, '')).join('<br>');
+          html += '<blockquote style="border-left: 3px solid var(--gold-accent); margin: 1.25rem 0; padding: 0.8rem 1.1rem; background: var(--bg-input); border-radius: var(--radius-sm); font-style: italic; color: var(--text-secondary);">' + Utils.formatInline(lines) + '</blockquote>';
+          continue;
+        }
+
+        // Unordered List
+        if (/^[-*]\s+/m.test(b)) {
+          const items = b.split(/\r?\n/).filter(l => /^[-*]\s+/.test(l.trim()));
+          if (items.length > 0) {
+            html += '<ul style="margin: 0.85rem 0 1.25rem 1.4rem; line-height: 1.65; color: var(--text-secondary);">';
+            items.forEach(it => {
+              html += '<li style="margin-bottom: 0.35rem;">' + Utils.formatInline(it.replace(/^[-*]\s+/, '')) + '</li>';
+            });
+            html += '</ul>';
+            continue;
+          }
+        }
+
+        // Numbered List
+        if (/^\d+\.\s+/m.test(b)) {
+          const items = b.split(/\r?\n/).filter(l => /^\d+\.\s+/.test(l.trim()));
+          if (items.length > 0) {
+            html += '<ol style="margin: 0.85rem 0 1.25rem 1.4rem; line-height: 1.65; color: var(--text-secondary);">';
+            items.forEach(it => {
+              html += '<li style="margin-bottom: 0.35rem;">' + Utils.formatInline(it.replace(/^\d+\.\s+/, '')) + '</li>';
+            });
+            html += '</ol>';
+            continue;
+          }
+        }
+
+        // Fenced Code Block
+        if (b.startsWith('```')) {
+          const lines = b.split(/\r?\n/);
+          const codeText = lines.slice(1, lines[lines.length - 1].startsWith('```') ? -1 : undefined).join('\n');
+          html += '<pre style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.5; color: var(--gold-accent);"><code>' + Utils.escapeHtml(codeText) + '</code></pre>';
+          continue;
+        }
+
+        // Table
+        if (b.includes('|') && b.split(/\r?\n/).length >= 2) {
+          const rows = b.split(/\r?\n/).map(r => r.trim()).filter(r => r.startsWith('|') && r.endsWith('|'));
+          if (rows.length >= 2) {
+            html += '<div class="reader-table-wrap"><table class="reader-table">';
+            rows.forEach((r, rIdx) => {
+              if (r.includes('---')) return;
+              const cells = r.split('|').slice(1, -1).map(c => c.trim());
+              const tag = rIdx === 0 ? 'th' : 'td';
+              html += '<tr>' + cells.map(c => '<' + tag + '>' + Utils.formatInline(c) + '</' + tag + '>').join('') + '</tr>';
+            });
+            html += '</table></div>';
+            continue;
+          }
+        }
+
+        // Regular Paragraph
+        const pLines = b.split(/\r?\n/).join('<br>');
+        html += '<p style="margin-bottom: 1.1rem; line-height: 1.7; color: var(--text-secondary); font-size: 1rem;">' + Utils.formatInline(pLines) + '</p>';
+      }
+
+      return html;
     },
 
     formatInline(str) {
       const codeRegex = new RegExp(String.fromCharCode(96) + '([^' + String.fromCharCode(96) + ']+)' + String.fromCharCode(96), 'g');
       return str
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="reader-link" data-href="$2">$1</a>')
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
         .replace(/\*([^*]+)\*/g, '<em>$1</em>')
         .replace(codeRegex, '<code style="background: var(--bg-input); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em;">$1</code>');
@@ -198,10 +298,14 @@
         const line = lines[i].trim();
         if (!line) continue;
 
-        if (line.endsWith(':') && !line.startsWith('[')) {
+        const speakerMatch = line.match(/^([А-ЯЁа-яёA-Za-z0-9_\s\(\)\.-]+):\s*(.*)$/);
+        if (speakerMatch && !line.startsWith('[') && speakerMatch[1].length < 35) {
           flush();
-          currentSpeaker = line.replace(/:$/, '');
-          isGM = currentSpeaker.toLowerCase().includes('михаил') || currentSpeaker.toLowerCase().includes('мастер');
+          currentSpeaker = speakerMatch[1].trim();
+          isGM = /мастер|гм|ведущий|gm/i.test(currentSpeaker);
+          if (speakerMatch[2]) {
+            currentEntryLines.push(speakerMatch[2]);
+          }
         } else {
           currentEntryLines.push(line);
         }
@@ -219,7 +323,6 @@
       return 'tag-solo';
     },
 
-    // Чипы участников сцены в шапке карточки цитаты.
     renderQuoteParticipants(item) {
       const list = item.participants || [];
       if (list.length === 0) return '';
@@ -227,8 +330,6 @@
       return `<div class="quote-participants">${chips}</div>`;
     },
 
-    // Диалог: каждая реплика — отдельный блок «Имя (ремарка): речь».
-    // Никакого markdown в вывод не попадает — парсер уже отдал чистый текст.
     renderQuoteDialogue(item) {
       const blocks = item.blocks || [];
 
@@ -241,8 +342,6 @@
           return `<div class="quote-narration">${Utils.escapeHtml(b.text)}</div>`;
         }
 
-        // Цвет строки — по участнику. Имя в реплике может быть короче, чем в чипе
-        // («Адам» в реплике и «Адам Фишер» в чипах), поэтому сверяем и по вхождению.
         const who = (b.speaker || '').toLowerCase();
         const list = item.participants || [];
         const meta = who
@@ -268,50 +367,69 @@
       return `<div class="quote-dialogue">${html}</div>`;
     },
 
-    // Текст для буфера обмена / Telegram.
     quoteShareText(item, sessionTitle) {
       const lines = [];
-      if (item.title) lines.push(item.title);
-      (item.blocks || []).forEach(b => {
-        if (b.type === 'narration') {
-          lines.push('(' + b.text + ')');
-          return;
-        }
-        const head = b.speaker ? (b.action ? b.speaker + ' (' + b.action + ')' : b.speaker) : '';
-        if (head && b.text) lines.push(head + ': «' + b.text + '»');
-        else if (head) lines.push(head);
-        else if (b.text) lines.push('«' + b.text + '»');
-      });
-      if (item.context) lines.push('Контекст: ' + item.context);
-      const who = (item.participants || []).map(p => p.name).join(', ');
-      if (who) lines.push('— ' + who);
-      lines.push('[Порто-Инверно 1931 • ' + sessionTitle + ']');
+      const parts = (item.participants || []).map(p => p.name).join(', ');
+      const head = `«${sessionTitle || 'Порто-Инверно'}»` + (parts ? ` — ${parts}` : '');
+      lines.push(head);
+      if (item.title) lines.push(`*${item.title}*`);
+      lines.push('');
+
+      if (item.blocks && item.blocks.length > 0) {
+        item.blocks.forEach(b => {
+          if (b.type === 'narration') {
+            lines.push(`_${b.text}_`);
+          } else {
+            const prefix = b.speaker ? `${b.speaker}${b.action ? ' (' + b.action + ')' : ''}: ` : '';
+            lines.push(`${prefix}${b.text}`);
+          }
+        });
+      } else if (item.text) {
+        lines.push(item.text);
+      }
+
+      if (item.context) {
+        lines.push('');
+        lines.push(`(Контекст: ${item.context})`);
+      }
       return lines.join('\n');
     }
   };
 
-  // Navigation Controller
+  // Encapsulated Navigation Manager
   const Navigation = {
     switchTab(tabKey, push = true) {
       AppState.activeTab = tabKey;
+
       DOM.navLinks.forEach(link => {
-        link.classList.toggle('active', link.getAttribute('data-tab') === tabKey);
+        const isTarget = link.getAttribute('data-tab') === tabKey;
+        link.classList.toggle('active', isTarget);
       });
 
-      DOM.viewPanels.forEach(p => p.classList.remove('active'));
+      DOM.viewPanels.forEach(panel => {
+        panel.classList.remove('active');
+      });
 
       if (tabKey === 'reader') {
-        DOM.viewReader.classList.add('active');
+        if (DOM.viewReader) DOM.viewReader.classList.add('active');
       } else {
-        const panel = document.getElementById('view-' + tabKey);
-        if (panel) panel.classList.add('active');
+        const activePanel = document.getElementById('view-' + tabKey);
+        if (activePanel) activePanel.classList.add('active');
 
-        // Re-render corresponding grid
-        if (tabKey === 'games') Grids.renderGames();
-        else if (tabKey === 'transcripts') Grids.renderTranscripts();
-        else if (tabKey === 'quotes') Grids.renderQuotes();
-        else if (tabKey === 'player-notes') Grids.renderFeedbacks();
-        else if (tabKey === 'characters') Grids.renderCharacters();
+        // Re-render corresponding grid with individual error boundary
+        try {
+          if (tabKey === 'games') Grids.renderGames();
+          else if (tabKey === 'transcripts') Grids.renderTranscripts();
+          else if (tabKey === 'quotes') Grids.renderQuotes();
+          else if (tabKey === 'psycho') Grids.renderPsycho();
+          else if (tabKey === 'sanity') Grids.renderSanity();
+          else if (tabKey === 'relationships') Grids.renderRelationships();
+          else if (tabKey === 'calendar') Grids.renderCalendar();
+          else if (tabKey === 'player-notes') Grids.renderFeedbacks();
+          else if (tabKey === 'characters') Grids.renderCharacters();
+        } catch (err) {
+          console.error(`Error rendering tab ${tabKey}:`, err);
+        }
 
         if (push) {
           history.pushState({ view: 'tab', tab: tabKey }, '', '#' + tabKey);
@@ -322,7 +440,7 @@
     }
   };
 
-  // Grids Rendering Engine (DRY)
+  // Grids Rendering Engine (DRY & Encapsulated)
   const Grids = {
     renderCard(container, item, options) {
       const card = document.createElement('div');
@@ -357,7 +475,7 @@
           (filter === 'Соло' ? item.category.includes('Соло') : (item.branch === filter || item.category === filter));
         const matchSearch = !query || 
           item.title.toLowerCase().includes(query) || 
-          item.thesis.toLowerCase().includes(query) ||
+          item.thesis.toLowerCase().includes(query) || 
           item.gameDate.toLowerCase().includes(query);
         return matchFilter && matchSearch;
       });
@@ -411,24 +529,22 @@
           badgeClass: Utils.getBranchClass(item.category),
           badgeText: item.category,
           title: item.title,
-          thesis: '📜 Файл стенограммы: ' + item.id + '.txt',
-          footerLeft: '📊 ' + item.linesCount + ' строк (' + item.sizeKb + ')',
-          actionText: 'Открыть стенограмму',
+          thesis: 'Стенограмма: ' + (item.linesCount ? item.linesCount + ' реплик' : 'полный текст диалогов'),
+          footerLeft: '🎮 Игра: ' + item.realDate,
+          actionText: 'Открыть запись',
           onClick: () => UnifiedReader.open('transcript', idx, true)
         });
       });
     },
 
     renderQuotes() {
-      if (!DOM.quotesGrid) return;
-
-      const query = AppState.searchQuery;
       const sFilter = AppState.filters.quotesStoryline;
       const aFilter = AppState.filters.quotesAuthor;
       const cFilter = AppState.filters.quotesCategory;
+      const query = AppState.searchQuery;
 
       if (AppState.quotesSelectedSession) {
-        // Detailed View of single session quotes
+        // Detailed View for single session
         if (DOM.quotesGrid) DOM.quotesGrid.style.display = 'none';
         if (DOM.quotesDetailView) DOM.quotesDetailView.style.display = 'block';
 
@@ -449,52 +565,48 @@
 
         if (DOM.quotesDetailSections) {
           DOM.quotesDetailSections.innerHTML = '';
-
           let totalRendered = 0;
 
           session.sections.forEach(sec => {
-            const matchCategory = cFilter === 'all' || sec.category === cFilter;
-            if (!matchCategory) return;
+            if (cFilter !== 'all' && sec.category !== cFilter) return;
 
             const filteredItems = sec.items.filter(item => {
               const keys = item.participantKeys || [item.playerKey];
               const matchAuthor = aFilter === 'all' || keys.includes(aFilter);
-              const matchSearch = !query ||
-                item.text.toLowerCase().includes(query) ||
-                (item.title && item.title.toLowerCase().includes(query)) ||
-                (item.participants || []).some(p => p.name.toLowerCase().includes(query)) ||
-                (item.context && item.context.toLowerCase().includes(query));
-              return matchAuthor && matchSearch;
+              if (!matchAuthor) return false;
+
+              if (!query) return true;
+              const hay = [
+                item.text,
+                item.title || '',
+                item.context || '',
+                (item.participants || []).map(p => p.name).join(' ')
+              ].join(' ').toLowerCase();
+              return hay.includes(query);
             });
 
             if (filteredItems.length === 0) return;
             totalRendered += filteredItems.length;
 
             const block = document.createElement('div');
-            block.className = 'quotes-category-block';
+            block.className = 'quote-category-block';
             block.innerHTML = `
-              <h3 class="quotes-category-title">
-                <span>${sec.icon}</span>
-                <span>${Utils.escapeHtml(sec.category)}</span>
-                <span class="quotes-category-count">${filteredItems.length}</span>
-              </h3>
-              <div class="quotes-list"></div>
+              <div class="quote-category-header">
+                <span class="quote-cat-icon">${sec.icon}</span>
+                <span class="quote-cat-name">${sec.category}</span>
+                <span class="quote-cat-count">${filteredItems.length}</span>
+              </div>
+              <div class="quotes-category-list"></div>
             `;
 
-            const listEl = block.querySelector('.quotes-list');
+            const listEl = block.querySelector('.quotes-category-list');
             filteredItems.forEach(item => {
               const card = document.createElement('div');
-              card.className = 'quote-card';
-              
-              let contextHtml = '';
-              if (item.context) {
-                contextHtml = `<div class="quote-context"><strong>Контекст:</strong> ${Utils.escapeHtml(item.context)}</div>`;
-              }
+              card.className = 'quote-item-card';
 
+              const titleHtml = item.title ? `<div class="quote-card-title">${Utils.escapeHtml(item.title)}</div>` : '';
+              const contextHtml = item.context ? `<div class="quote-context-line">Контекст: ${Utils.escapeHtml(item.context)}</div>` : '';
               const participantsHtml = Utils.renderQuoteParticipants(item);
-              const titleHtml = item.title
-                ? `<div class="quote-scene-title">${Utils.escapeHtml(item.title)}</div>`
-                : '';
 
               card.innerHTML = `
                 <div>
@@ -715,6 +827,742 @@
         card.addEventListener('click', () => CharactersModal.open(char, true));
         DOM.charactersGrid.appendChild(card);
       });
+    },
+
+    renderPsycho() {
+      if (!DOM.psychoGrid) return;
+      DOM.psychoGrid.innerHTML = '';
+
+      const query = AppState.searchQuery;
+      const filter = AppState.filters.psychoChar;
+
+      const items = (DataStore.psycho || []).filter(item => {
+        const matchFilter = filter === 'all' || item.characterKey === filter || (filter === 'duets' && item.characterKey === 'duets') || (filter === 'overview' && item.characterKey === 'overview');
+        const matchSearch = !query ||
+          item.title.toLowerCase().includes(query) ||
+          (item.archetype && item.archetype.toLowerCase().includes(query)) ||
+          (item.diagnosis1931 && item.diagnosis1931.toLowerCase().includes(query)) ||
+          (item.summaryText && item.summaryText.toLowerCase().includes(query));
+        return matchFilter && matchSearch;
+      });
+
+      if (items.length === 0) {
+        DOM.psychoGrid.innerHTML = '<div style="grid-column:1/-1; padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Психологические досье не найдены</div>';
+        return;
+      }
+
+      items.forEach(item => {
+        const idx = DataStore.psycho.findIndex(p => p.id === item.id);
+        const card = document.createElement('div');
+        card.className = 'psycho-card';
+
+        const avatarCls = item.badgeClass || 'tag-solo';
+        const quoteHtml = item.manifestQuote ? `<div class="psycho-quote-snippet">${Utils.escapeHtml(item.manifestQuote)}</div>` : '';
+        const riskCls = item.riskClass || 'risk-high';
+        const riskTxt = item.riskLevel || 'Экспертиза';
+        const initTxt = item.initial || '🧠';
+
+        card.innerHTML = `
+          <div>
+            <div class="psycho-stamp ${riskCls}">${Utils.escapeHtml(riskTxt)}</div>
+            <div class="psycho-header">
+              <div class="psycho-avatar ${avatarCls}">${Utils.escapeHtml(initTxt)}</div>
+              <div>
+                <h3 class="card-title" style="margin-bottom:0.15rem;">${Utils.escapeHtml(item.title)}</h3>
+                <span class="badge-tag ${avatarCls}">${Utils.escapeHtml(item.archetype || item.role)}</span>
+              </div>
+            </div>
+
+            <div class="psycho-diag-block">
+              <div class="psycho-diag-item">
+                <span class="psycho-diag-label">Диагноз (1931 г.):</span>
+                <span class="psycho-diag-val">${Utils.escapeHtml(item.diagnosis1931)}</span>
+              </div>
+              <div class="psycho-diag-item">
+                <span class="psycho-diag-label">Клинический срез:</span>
+                <span class="psycho-diag-val" style="font-size:0.78rem; color:var(--text-secondary);">${Utils.escapeHtml(item.diagnosisModern)}</span>
+              </div>
+            </div>
+
+            <p class="card-thesis" style="font-size:0.84rem; line-height:1.55; margin-bottom:0.6rem;">${Utils.escapeHtml(item.summaryText)}</p>
+            ${quoteHtml}
+          </div>
+
+          <div class="card-footer-row" style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border-subtle);">
+            <span class="card-subtitle">📁 Судебная экспертиза</span>
+            <span class="card-action-link">Читать полный разбор →</span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => UnifiedReader.open('psycho', idx, true));
+        DOM.psychoGrid.appendChild(card);
+      });
+    },
+
+    renderSanity() {
+      if (!DOM.sanityDashboardContainer) return;
+      DOM.sanityDashboardContainer.innerHTML = '';
+
+      const heroKey = AppState.sanityHero || 'molly';
+      const allSanity = DataStore.sanityTimeline || {};
+      const hero = allSanity[heroKey];
+
+      if (!hero || !hero.points || hero.points.length === 0) {
+        DOM.sanityDashboardContainer.innerHTML = '<div style="padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Данные ментальной шкалы недоступны</div>';
+        return;
+      }
+
+      const points = hero.points;
+      let selIdx = AppState.sanitySelectedPointIndex;
+      if (selIdx < 0 || selIdx >= points.length) selIdx = points.length - 1;
+      const selPoint = points[selIdx];
+
+      // 1. Hero Summary Header Card
+      const heroAvatarInitial = heroKey === 'molly' ? 'М' : heroKey === 'heather' ? 'Х' : heroKey === 'aiden' ? 'Э' : 'Г';
+      const currentScoreColor = hero.currentScore >= 70 ? 'var(--status-alive-text)' : hero.currentScore >= 40 ? 'var(--status-warning-text)' : 'var(--status-dead-text)';
+
+      const dashboard = document.createElement('div');
+      dashboard.className = 'sanity-dashboard';
+
+      dashboard.innerHTML = `
+        <div class="sanity-hero-card">
+          <div class="sanity-hero-top">
+            <div class="sanity-hero-info">
+              <div class="sanity-hero-avatar ${hero.badgeClass}">${heroAvatarInitial}</div>
+              <div class="sanity-hero-title-group">
+                <h3>${Utils.escapeHtml(hero.characterName)}</h3>
+                <span class="badge-tag ${hero.badgeClass}">${Utils.escapeHtml(hero.archetype)}</span>
+              </div>
+            </div>
+            <div class="sanity-score-badge">
+              <span style="font-size:0.78rem; color:var(--text-tertiary); text-transform:uppercase; font-weight:700;">Текущая стабильность:</span>
+              <span class="sanity-score-num" style="color:${currentScoreColor};">${hero.currentScore}%</span>
+            </div>
+          </div>
+
+          <div class="sanity-hero-meta-grid">
+            <div class="sanity-meta-box">
+              <span class="sanity-meta-label">Базовая травма:</span>
+              <span class="sanity-meta-val">${Utils.escapeHtml(hero.baseTrauma)}</span>
+            </div>
+            <div class="sanity-meta-box">
+              <span class="sanity-meta-label">Ключевой фактор риска:</span>
+              <span class="sanity-meta-val">${Utils.escapeHtml(hero.primaryRisk)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart Card -->
+        <div class="sanity-chart-card">
+          <div class="sanity-chart-header">
+            <div>
+              <h4 style="font-size:1.05rem; font-weight:700; color:var(--text-primary);">Интерактивная кардиограмма стабильности</h4>
+              <p style="font-size:0.8rem; color:var(--text-tertiary);">Нажмите на любую точку хронологии, чтобы изучить фактор слома и реакцию героя</p>
+            </div>
+            <div class="sanity-chart-legend">
+              <span><span class="legend-dot" style="background:#30d158;"></span>Контроль (>70%)</span>
+              <span><span class="legend-dot" style="background:#ff9f0a;"></span>Тревога (40–70%)</span>
+              <span><span class="legend-dot" style="background:#ff453a;"></span>Кризис / Срыв (&lt;40%)</span>
+            </div>
+          </div>
+
+          <div class="sanity-svg-wrap">
+            <svg class="sanity-svg" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <linearGradient id="sanityLineGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="var(--accent)" />
+                  <stop offset="100%" stop-color="var(--gold-accent)" />
+                </linearGradient>
+                <linearGradient id="zoneGreen" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(48, 209, 88, 0.12)" />
+                  <stop offset="100%" stop-color="rgba(48, 209, 88, 0.02)" />
+                </linearGradient>
+                <linearGradient id="zoneOrange" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(255, 159, 10, 0.1)" />
+                  <stop offset="100%" stop-color="rgba(255, 159, 10, 0.02)" />
+                </linearGradient>
+                <linearGradient id="zoneRed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(255, 69, 58, 0.15)" />
+                  <stop offset="100%" stop-color="rgba(255, 69, 58, 0.04)" />
+                </linearGradient>
+              </defs>
+
+              <!-- Background Risk Zones -->
+              <rect x="50" y="20" width="820" height="70" fill="url(#zoneGreen)" rx="4" />
+              <rect x="50" y="90" width="820" height="75" fill="url(#zoneOrange)" rx="4" />
+              <rect x="50" y="165" width="820" height="75" fill="url(#zoneRed)" rx="4" />
+
+              <!-- Horizontal Grid Lines -->
+              <line x1="50" y1="20" x2="870" y2="20" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
+              <text x="42" y="24" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">100%</text>
+
+              <line x1="50" y1="90" x2="870" y2="90" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
+              <text x="42" y="94" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">70%</text>
+
+              <line x1="50" y1="165" x2="870" y2="165" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
+              <text x="42" y="169" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">40%</text>
+
+              <line x1="50" y1="240" x2="870" y2="240" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
+              <text x="42" y="244" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">0%</text>
+
+              <!-- Main Curve -->
+              <polyline id="sanityPolyline" fill="none" stroke="url(#sanityLineGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+
+              <!-- Nodes Container -->
+              <g id="sanitySvgNodes"></g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Detail Breakdown Card -->
+        <div class="sanity-detail-card">
+          <div class="sanity-detail-header">
+            <div class="sanity-detail-title-group">
+              <h4>${Utils.escapeHtml(selPoint.title)}</h4>
+              <span class="sanity-detail-date">📅 ${Utils.escapeHtml(selPoint.gameDate)}</span>
+            </div>
+            <span class="badge-tag ${selPoint.statusClass}" style="font-size:0.88rem; font-weight:700; background:rgba(255,255,255,0.06); padding:0.4rem 0.85rem;">
+              Стабильность: ${selPoint.score}% (${selPoint.status})
+            </span>
+          </div>
+
+          <div class="sanity-detail-body">
+            <div class="sanity-detail-field">
+              <span class="sanity-detail-label">⚡ Триггерное событие / Фактор слома:</span>
+              <p style="color:var(--text-primary);">${Utils.escapeHtml(selPoint.trigger)}</p>
+            </div>
+            <div class="sanity-detail-field">
+              <span class="sanity-detail-label">🧠 Психологическая реакция:</span>
+              <p style="color:var(--text-secondary);">${Utils.escapeHtml(selPoint.reaction)}</p>
+            </div>
+            <div class="sanity-quote-box">
+              ${Utils.escapeHtml(selPoint.quote)}
+            </div>
+          </div>
+
+          <div class="sanity-detail-actions">
+            ${selPoint.chapterId ? `<button class="btn-quote-action" id="btnSanityOpenChapter">📖 Читать главу сессии</button>` : ''}
+          </div>
+        </div>
+      `;
+
+      DOM.sanityDashboardContainer.appendChild(dashboard);
+
+      // Compute node coordinates and populate SVG
+      const padX = 70;
+      const chartW = 870 - padX;
+      const topY = 20;
+      const botY = 240;
+      const rangeY = botY - topY;
+
+      const coords = points.map((p, idx) => {
+        const x = points.length === 1 ? padX + chartW / 2 : padX + (idx / (points.length - 1)) * chartW;
+        const y = botY - (p.score / 100) * rangeY;
+        return { x, y, p, idx };
+      });
+
+      const polylineEl = dashboard.querySelector('#sanityPolyline');
+      if (polylineEl) {
+        polylineEl.setAttribute('points', coords.map(c => `${c.x},${c.y}`).join(' '));
+      }
+
+      const nodesGroup = dashboard.querySelector('#sanitySvgNodes');
+      if (nodesGroup) {
+        coords.forEach(c => {
+          const isAct = c.idx === selIdx;
+          const isCritical = c.p.score < 30;
+          const nodeColor = c.p.score >= 70 ? '#30d158' : c.p.score >= 40 ? '#ff9f0a' : '#ff453a';
+
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', `sanity-node ${isAct ? 'active' : ''}`);
+          g.style.color = nodeColor;
+
+          let pulseHtml = '';
+          if (isCritical) {
+            pulseHtml = `<circle class="sanity-pulse-ring" cx="${c.x}" cy="${c.y}" r="12" fill="none" stroke="${nodeColor}" stroke-width="1.5" />`;
+          }
+
+          g.innerHTML = `
+            <title>${Utils.escapeHtml(c.p.title)} (${c.p.gameDate}): Стабильность ${c.p.score}% — ${Utils.escapeHtml(c.p.status)}</title>
+            ${pulseHtml}
+            <circle class="point-circle" cx="${c.x}" cy="${c.y}" r="${isAct ? '10' : '7'}" fill="${nodeColor}" stroke="${isAct ? '#ffffff' : 'rgba(0,0,0,0.6)'}" stroke-width="${isAct ? '3' : '2'}" />
+            <text x="${c.x}" y="${botY + 22}" fill="${isAct ? 'var(--text-primary)' : 'var(--text-tertiary)'}" font-size="10" font-weight="${isAct ? '700' : '500'}" text-anchor="middle" font-family="var(--font-sans)">
+              ${c.p.gameDate.split(',')[0].replace(' 1931', '').trim()}
+            </text>
+            <text x="${c.x}" y="${c.y - 12}" fill="${nodeColor}" font-size="10" font-weight="700" text-anchor="middle" font-family="var(--font-mono)">
+              ${c.p.score}%
+            </text>
+          `;
+
+          g.addEventListener('click', () => {
+            AppState.sanitySelectedPointIndex = c.idx;
+            Grids.renderSanity();
+          });
+
+          nodesGroup.appendChild(g);
+        });
+      }
+
+      // Action Button listener
+      const btnOpenChapter = dashboard.querySelector('#btnSanityOpenChapter');
+      if (btnOpenChapter && selPoint.chapterId) {
+        btnOpenChapter.addEventListener('click', () => {
+          const sumIdx = (DataStore.summaries || []).findIndex(s => s.id === selPoint.chapterId);
+          if (sumIdx !== -1) {
+            UnifiedReader.open('chapter', sumIdx, true);
+          } else {
+            Navigation.switchTab('games', true);
+          }
+        });
+      }
+    },
+
+    renderRelationships() {
+      if (!DOM.relationshipsContainer) return;
+      DOM.relationshipsContainer.innerHTML = '';
+
+      const pairKey = AppState.selectedRelationshipPair || 'molly-heather';
+      const allRels = DataStore.relationships || {};
+      const rel = allRels[pairKey];
+
+      if (!rel || !rel.stages || rel.stages.length === 0) {
+        DOM.relationshipsContainer.innerHTML = '<div style="padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Данные динамики отношений недоступны</div>';
+        return;
+      }
+
+      const stages = rel.stages;
+      let selIdx = AppState.selectedRelationshipStageIndex;
+      if (selIdx < 0 || selIdx >= stages.length) selIdx = 0;
+      const currentStage = stages[selIdx];
+
+      const getInitial = (name) => {
+        if (!name) return '?';
+        if (name.includes('Молли')) return 'М';
+        if (name.includes('Хизер')) return 'Х';
+        if (name.includes('Эйден')) return 'Э';
+        if (name.includes('Грейвз') || name.includes('Малкольм')) return 'Г';
+        if (name.includes('Адам')) return 'А';
+        if (name.includes('Крауч')) return 'К';
+        if (name.includes('Риган') || name.includes('Джек')) return 'Р';
+        if (name.includes('Сильвия')) return 'С';
+        if (name.includes('Оливер')) return 'О';
+        if (name.includes('Иван')) return 'И';
+        if (name.includes('Гектор') || name.includes('Гринго')) return 'Г';
+        return name.charAt(0);
+      };
+
+      const getTagClass = (name) => {
+        if (!name) return 'tag-solo';
+        if (name.includes('Молли')) return 'tag-molly';
+        if (name.includes('Хизер')) return 'tag-heather';
+        if (name.includes('Эйден')) return 'tag-aiden';
+        if (name.includes('Грейвз') || name.includes('Малкольм')) return 'tag-graves';
+        if (name.includes('Адам')) return 'tag-solo';
+        if (name.includes('Крауч')) return 'tag-aiden';
+        if (name.includes('Риган')) return 'tag-molly';
+        if (name.includes('Сильвия') || name.includes('Оливер') || name.includes('Иван')) return 'tag-heather';
+        if (name.includes('Гектор') || name.includes('Гринго')) return 'tag-aiden';
+        return 'tag-solo';
+      };
+
+      const container = document.createElement('div');
+      container.className = 'relationship-dashboard';
+
+      container.innerHTML = `
+        <!-- 1. Hero Pair Header Card -->
+        <div class="rel-hero-card">
+          <div class="rel-hero-top">
+            <div class="rel-duo-avatars">
+              <div class="rel-avatar ${getTagClass(rel.char1)}">${getInitial(rel.char1)}</div>
+              <div class="rel-avatar-connector">⟷</div>
+              <div class="rel-avatar ${getTagClass(rel.char2)}">${getInitial(rel.char2)}</div>
+            </div>
+            <div class="rel-hero-title-group">
+              <h3>${Utils.escapeHtml(rel.pairName)}</h3>
+              <div class="rel-badges-row">
+                <span class="badge-tag ${rel.badgeClass || 'tag-molly'}">${Utils.escapeHtml(rel.archetype)}</span>
+                <span class="rel-status-pill">${Utils.escapeHtml(rel.status)}</span>
+              </div>
+            </div>
+          </div>
+          <p class="rel-hero-summary">${Utils.escapeHtml(rel.summary)}</p>
+        </div>
+
+        <!-- 2. Interactive Stepper Timeline / Time Slider -->
+        <div class="rel-stepper-card">
+          <div class="rel-stepper-header">
+            <div>
+              <h4>Хронологический слайдер динамики отношений (1931)</h4>
+              <p>Нажмите на любую фазу, чтобы изучить смещение баланса доверия, напряжения и привязанности</p>
+            </div>
+            <span class="rel-step-counter">Фаза ${selIdx + 1} из ${stages.length}</span>
+          </div>
+
+          <div class="rel-timeline-track">
+            ${stages.map((st, idx) => {
+              const isAct = idx === selIdx;
+              const isPassed = idx < selIdx;
+              return `
+                <div class="rel-step-node ${isAct ? 'active' : ''} ${isPassed ? 'passed' : ''}" data-stage-idx="${idx}">
+                  <div class="rel-step-circle">
+                    <span class="rel-step-num">${idx + 1}</span>
+                  </div>
+                  <div class="rel-step-labels">
+                    <span class="rel-step-date">${Utils.escapeHtml(st.gameDate)}</span>
+                    <span class="rel-step-title">${Utils.escapeHtml(st.title)}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- 3. Dynamic Multi-Metric Level Meters -->
+        <div class="rel-metrics-card">
+          <h4 class="rel-metrics-title">Психологический баланс фазы: «${Utils.escapeHtml(currentStage.title)}»</h4>
+          <div class="rel-metrics-grid">
+            <!-- Trust Meter -->
+            <div class="rel-metric-box">
+              <div class="rel-metric-top">
+                <span class="rel-metric-label">🟢 Уровень взаимного доверия:</span>
+                <span class="rel-metric-val" style="color:#30d158;">${currentStage.trust}%</span>
+              </div>
+              <div class="metric-bar-wrap">
+                <div class="metric-bar-fill" style="width:${currentStage.trust}%; background: linear-gradient(90deg, #30d158, #34c759);"></div>
+              </div>
+            </div>
+
+            <!-- Codependency Meter -->
+            <div class="rel-metric-box">
+              <div class="rel-metric-top">
+                <span class="rel-metric-label">🟣 Созависимость / Привязанность:</span>
+                <span class="rel-metric-val" style="color:#bf5af2;">${currentStage.codependency}%</span>
+              </div>
+              <div class="metric-bar-wrap">
+                <div class="metric-bar-fill" style="width:${currentStage.codependency}%; background: linear-gradient(90deg, #af52de, #bf5af2);"></div>
+              </div>
+            </div>
+
+            <!-- Tension Meter -->
+            <div class="rel-metric-box">
+              <div class="rel-metric-top">
+                <span class="rel-metric-label">🔴 Напряжение / Уровень конфликта:</span>
+                <span class="rel-metric-val" style="color:#ff453a;">${currentStage.tension}%</span>
+              </div>
+              <div class="metric-bar-wrap">
+                <div class="metric-bar-fill" style="width:${currentStage.tension}%; background: linear-gradient(90deg, #ff9f0a, #ff453a);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Detailed Stage Breakdown Card -->
+        <div class="rel-detail-card">
+          <div class="rel-detail-header">
+            <div class="rel-detail-title-group">
+              <div class="rel-detail-badge-row">
+                <span class="date-pill">${Utils.escapeHtml(currentStage.gameDate)}</span>
+                <span class="badge-tag ${rel.badgeClass || 'tag-molly'}">${Utils.escapeHtml(currentStage.sessionKey)}</span>
+                <span class="${currentStage.statusClass || 'status-alive-text'}" style="font-weight:700; font-size:0.85rem;">● ${Utils.escapeHtml(currentStage.status)}</span>
+              </div>
+              <h3 class="rel-detail-heading">${Utils.escapeHtml(currentStage.title)}</h3>
+            </div>
+
+            ${currentStage.chapterId ? `
+              <button class="btn-icon-text" id="btnRelOpenChapter" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-card); padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--gold-accent);">
+                📖 Читать главу
+              </button>
+            ` : ''}
+          </div>
+
+          <div class="rel-detail-body">
+            <!-- Event Trigger Description -->
+            <div class="rel-info-section">
+              <h5 class="rel-section-label">⚡ Событийный триггер и поворот сюжета:</h5>
+              <p class="rel-section-text">${Utils.escapeHtml(currentStage.description)}</p>
+            </div>
+
+            <!-- Dialogue / Quote Box -->
+            ${currentStage.quote ? `
+              <div class="rel-quote-box">
+                <div class="rel-quote-icon">💬</div>
+                <div class="rel-quote-content">
+                  <span class="rel-quote-label">Знаковый диалог / Манифест:</span>
+                  <p class="rel-quote-text">${Utils.escapeHtml(currentStage.quote)}</p>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Clinical / Psychological Analysis -->
+            <div class="rel-psychology-box">
+              <div class="rel-psych-icon">🧠</div>
+              <div class="rel-psych-content">
+                <span class="rel-psych-label">Клинико-психологический анализ динамики:</span>
+                <p class="rel-psych-text">${Utils.escapeHtml(currentStage.psychology)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Attach Step Nodes listeners
+      container.querySelectorAll('.rel-step-node').forEach(node => {
+        node.addEventListener('click', () => {
+          const idx = parseInt(node.getAttribute('data-stage-idx') || '0', 10);
+          AppState.selectedRelationshipStageIndex = idx;
+          Grids.renderRelationships();
+        });
+      });
+
+      // Attach Open Chapter button
+      const btnOpenChapter = container.querySelector('#btnRelOpenChapter');
+      if (btnOpenChapter && currentStage.chapterId) {
+        btnOpenChapter.addEventListener('click', () => {
+          const sumIdx = (DataStore.summaries || []).findIndex(s => s.id === currentStage.chapterId);
+          if (sumIdx !== -1) {
+            UnifiedReader.open('chapter', sumIdx, true);
+          } else {
+            Navigation.switchTab('games', true);
+          }
+        });
+      }
+
+      DOM.relationshipsContainer.appendChild(container);
+    },
+
+    renderCalendar() {
+      if (!DOM.calendarContainer) return;
+      DOM.calendarContainer.innerHTML = '';
+
+      const calendarData = DataStore.calendar || { days: {}, monthInfo: {} };
+      const daysMap = calendarData.days || {};
+      const monthInfo = calendarData.monthInfo || { year: 1931, month: 10, totalDays: 31, startDayOfWeek: 4 };
+
+      // Apply branch and threat filters
+      const filterBranch = AppState.filters.calendarBranch || 'all';
+      const filterThreat = AppState.filters.calendarThreat || 'all';
+
+      let selDateKey = AppState.selectedCalendarDate || '1931-10-14';
+      if (!daysMap[selDateKey]) {
+        const availableDates = Object.keys(daysMap).sort();
+        selDateKey = availableDates[0] || '1931-10-09';
+        AppState.selectedCalendarDate = selDateKey;
+      }
+
+      const selDayData = daysMap[selDateKey] || null;
+
+      // Filter incidents for currently selected day
+      let displayedIncidents = [];
+      if (selDayData && selDayData.incidents) {
+        displayedIncidents = selDayData.incidents.filter(inc => {
+          if (filterBranch !== 'all' && inc.branch !== filterBranch) return false;
+          if (filterThreat === 'critical' && selDayData.threatClass !== 'threat-critical') return false;
+          if (filterThreat === 'high' && selDayData.threatClass !== 'threat-high' && selDayData.threatClass !== 'threat-critical') return false;
+          return true;
+        });
+      }
+
+      const container = document.createElement('div');
+      container.className = 'calendar-dashboard';
+
+      // 1. Quick Presets Bar
+      const presetsHtml = `
+        <div class="calendar-presets-bar">
+          <span class="preset-label">Ключевые даты:</span>
+          <div class="preset-chips">
+            <button class="preset-btn ${selDateKey === '1931-10-09' ? 'active' : ''}" data-date="1931-10-09">🌉 9 окт (Мост & Захват)</button>
+            <button class="preset-btn ${selDateKey === '1931-10-10' ? 'active' : ''}" data-date="1931-10-10">🌧️ 10 окт (Покушение на Хизер)</button>
+            <button class="preset-btn ${selDateKey === '1931-10-13' ? 'active' : ''}" data-date="1931-10-13">🪜 13 окт (Форточка & Тюрьма)</button>
+            <button class="preset-btn ${selDateKey === '1931-10-14' ? 'active' : ''}" data-date="1931-10-14">🩸 14 окт (Кровавая среда)</button>
+            <button class="preset-btn ${selDateKey === '1931-10-20' ? 'active' : ''}" data-date="1931-10-20">💔 20 окт (Гибель Каролины)</button>
+            <button class="preset-btn ${selDateKey === '1931-10-24' ? 'active' : ''}" data-date="1931-10-24">🎖️ 24 окт (Сбор Крауча & Риган)</button>
+            <button class="preset-btn ${selDateKey === '1931-10-25' ? 'active' : ''}" data-date="1931-10-25">🔥 25 окт (Пекарня & Суд Крауча)</button>
+            <button class="preset-btn ${selDateKey === '1931-10-26' ? 'active' : ''}" data-date="1931-10-26">🕊️ 26 окт (Кухонный пакт)</button>
+          </div>
+        </div>
+      `;
+
+      // 2. Monthly Grid Calculation
+      const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      let offset = (monthInfo.startDayOfWeek === 0 ? 7 : monthInfo.startDayOfWeek) - 1; // for Thu (4): offset = 3
+
+      let gridCellsHtml = '';
+      for (let i = 0; i < offset; i++) {
+        gridCellsHtml += `<div class="cal-cell empty"></div>`;
+      }
+
+      for (let d = 1; d <= monthInfo.totalDays; d++) {
+        const dayStr = d < 10 ? '0' + d : '' + d;
+        const dateKey = `1931-10-${dayStr}`;
+        const dayObj = daysMap[dateKey];
+        const isSelected = dateKey === selDateKey;
+        const hasIncidents = Boolean(dayObj && dayObj.incidents && dayObj.incidents.length > 0);
+
+        let threatClass = dayObj ? (dayObj.threatClass || 'threat-medium') : '';
+        let incCount = dayObj && dayObj.incidents ? dayObj.incidents.length : 0;
+
+        gridCellsHtml += `
+          <div class="cal-cell ${hasIncidents ? 'has-events' : ''} ${isSelected ? 'selected' : ''} ${threatClass}" data-date="${dateKey}">
+            <div class="cal-cell-header">
+              <span class="cal-cell-day">${d}</span>
+              ${incCount > 0 ? `<span class="cal-inc-badge">${incCount}</span>` : ''}
+            </div>
+            ${hasIncidents ? `
+              <div class="cal-dots-row">
+                ${dayObj.incidents.some(i => i.branch.includes('Молли')) ? '<span class="cal-dot dot-molly" title="Молли & Хизер"></span>' : ''}
+                ${dayObj.incidents.some(i => i.branch.includes('Эйден')) ? '<span class="cal-dot dot-aiden" title="Эйден & Малкольм"></span>' : ''}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <!-- Quick Preset Jumps -->
+        ${presetsHtml}
+
+        <!-- Month Grid Card -->
+        <div class="cal-month-card">
+          <div class="cal-month-header">
+            <div class="cal-month-title">
+              <span class="cal-month-icon">🗓️</span>
+              <h3>Октябрь 1931</h3>
+            </div>
+            <div class="cal-legend">
+              <span class="legend-item"><span class="legend-dot dot-critical"></span> Чрезвычайный</span>
+              <span class="legend-item"><span class="legend-dot dot-high"></span> Высокая угроза</span>
+              <span class="legend-item"><span class="cal-dot dot-molly"></span> Ветка Девушек</span>
+              <span class="legend-item"><span class="cal-dot dot-aiden"></span> Ветка Парней</span>
+            </div>
+          </div>
+
+          <div class="cal-weekdays-row">
+            ${weekdays.map(w => `<div class="cal-weekday">${w}</div>`).join('')}
+          </div>
+
+          <div class="cal-grid">
+            ${gridCellsHtml}
+          </div>
+        </div>
+
+        <!-- Selected Day Dossier Inspector -->
+        ${selDayData ? `
+          <div class="cal-day-inspector">
+            <div class="cal-inspector-header">
+              <div class="cal-inspector-title-group">
+                <div class="cal-inspector-meta">
+                  <span class="date-pill" style="font-size:0.95rem; font-weight:700;">📅 ${Utils.escapeHtml(selDayData.displayDate)}, ${Utils.escapeHtml(selDayData.dayOfWeek)}</span>
+                  <span class="threat-pill ${selDayData.threatClass || 'threat-high'}">⚠️ ${Utils.escapeHtml(selDayData.threatLevel)}</span>
+                </div>
+                <h3 class="cal-inspector-headline">${Utils.escapeHtml(selDayData.headline)}</h3>
+                <p class="cal-inspector-summary">${Utils.escapeHtml(selDayData.summary)}</p>
+              </div>
+            </div>
+
+            <!-- Incidents Timeline for Selected Day -->
+            <div class="cal-incidents-timeline">
+              <h4 class="cal-timeline-title">Хроника операций дня (${displayedIncidents.length} инцидентов)</h4>
+              
+              ${displayedIncidents.length === 0 ? `
+                <div style="padding:2rem; text-align:center; color:var(--text-tertiary);">Нет инцидентов, соответствующих выбранным фильтрам.</div>
+              ` : displayedIncidents.map((inc, iIdx) => `
+                <div class="cal-incident-card">
+                  <div class="cal-inc-header">
+                    <div class="cal-inc-time-group">
+                      <span class="cal-time-pill">${Utils.escapeHtml(inc.time)} (${Utils.escapeHtml(inc.timeOfDay)})</span>
+                      <span class="badge-tag ${inc.badgeClass || 'tag-solo'}">${Utils.escapeHtml(inc.branch)}</span>
+                    </div>
+                    ${inc.chapterId ? `
+                      <button class="btn-icon-text btn-cal-read" data-chapter-id="${Utils.escapeHtml(inc.chapterId)}" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-card); padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--gold-accent);">
+                        📖 Читать главу
+                      </button>
+                    ` : ''}
+                  </div>
+
+                  <h4 class="cal-inc-title">${Utils.escapeHtml(inc.title)}</h4>
+                  
+                  <div class="cal-inc-location">
+                    <span class="loc-icon">📍</span>
+                    <span class="loc-text">${Utils.escapeHtml(inc.location)}</span>
+                  </div>
+
+                  <p class="cal-inc-desc">${Utils.escapeHtml(inc.description)}</p>
+
+                  <!-- Participants -->
+                  ${inc.participants && inc.participants.length > 0 ? `
+                    <div class="cal-inc-participants">
+                      <span class="part-label">Участники:</span>
+                      <div class="part-chips">
+                        ${inc.participants.map(p => `<span class="part-chip">${Utils.escapeHtml(p)}</span>`).join('')}
+                      </div>
+                    </div>
+                  ` : ''}
+
+                  <!-- Quote Callout -->
+                  ${inc.quote ? `
+                    <div class="cal-inc-quote">
+                      <span class="quote-icon">💬</span>
+                      <span class="quote-text">${Utils.escapeHtml(inc.quote)}</span>
+                    </div>
+                  ` : ''}
+
+                  <!-- Intelligence Box -->
+                  ${inc.intel ? `
+                    <div class="cal-inc-intel">
+                      <span class="intel-icon">🕵️</span>
+                      <div class="intel-content">
+                        <span class="intel-label">Разведданные заговора:</span>
+                        <span class="intel-text">${Utils.escapeHtml(inc.intel)}</span>
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : `
+          <div class="cal-day-inspector" style="text-align:center; padding:3rem 1rem; color:var(--text-tertiary);">
+            В этот день в Порто-Инверно не зафиксировано боевых операций синдиката.
+          </div>
+        `}
+      `;
+
+      // Attach Click handlers to calendar cells
+      container.querySelectorAll('.cal-cell.has-events').forEach(cell => {
+        cell.addEventListener('click', () => {
+          const dt = cell.getAttribute('data-date');
+          if (dt) {
+            AppState.selectedCalendarDate = dt;
+            Grids.renderCalendar();
+          }
+        });
+      });
+
+      // Attach Click handlers to preset buttons
+      container.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const dt = btn.getAttribute('data-date');
+          if (dt) {
+            AppState.selectedCalendarDate = dt;
+            Grids.renderCalendar();
+          }
+        });
+      });
+
+      // Attach Chapter Read buttons
+      container.querySelectorAll('.btn-cal-read').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const chapId = btn.getAttribute('data-chapter-id');
+          const sumIdx = (DataStore.summaries || []).findIndex(s => s.id === chapId);
+          if (sumIdx !== -1) {
+            UnifiedReader.open('chapter', sumIdx, true);
+          } else {
+            Navigation.switchTab('games', true);
+          }
+        });
+      });
+
+      DOM.calendarContainer.appendChild(container);
     }
   };
 
@@ -744,6 +1592,11 @@
         totalCount = DataStore.feedbacks.length;
         backTab = 'player-notes';
         backLabel = '← К дневнику ОС';
+      } else if (docType === 'psycho') {
+        doc = DataStore.psycho[index];
+        totalCount = (DataStore.psycho || []).length;
+        backTab = 'psycho';
+        backLabel = '← К псих. архиву';
       }
 
       if (!doc) return;
@@ -780,13 +1633,13 @@
       }
 
       // Render Meta
-      DOM.readerCategory.textContent = doc.category || doc.characterName;
+      DOM.readerCategory.textContent = doc.category || doc.archetype || doc.characterName || 'Психологический профиль';
       DOM.readerCategory.className = 'badge-tag ' + (doc.badgeClass || Utils.getBranchClass(doc.category));
-      DOM.readerDate.textContent = '📅 ' + (doc.gameDate || doc.date || doc.readTime);
-      DOM.readerReadTime.textContent = '⏳ ' + (doc.readTime || (doc.linesCount ? doc.linesCount + ' строк' : ''));
+      DOM.readerDate.textContent = '📅 ' + (doc.gameDate || doc.date || doc.readTime || 'Октябрь 1931');
+      DOM.readerReadTime.textContent = '⏳ ' + (doc.riskLevel ? 'Риск: ' + doc.riskLevel : (doc.readTime || (doc.linesCount ? doc.linesCount + ' строк' : '')));
       DOM.readerTitle.textContent = doc.title;
-      DOM.readerThesis.textContent = doc.thesis ? '«' + doc.thesis + '»' : (doc.role ? '«' + doc.role + '»' : '');
-      DOM.readerThesis.style.display = (doc.thesis || doc.role) ? 'block' : 'none';
+      DOM.readerThesis.textContent = doc.thesis ? '«' + doc.thesis + '»' : (doc.diagnosis1931 ? '«' + doc.diagnosis1931 + '»' : (doc.role ? '«' + doc.role + '»' : ''));
+      DOM.readerThesis.style.display = (doc.thesis || doc.role || doc.diagnosis1931) ? 'block' : 'none';
 
       // Prev / Next
       DOM.btnPrev.disabled = index <= 0;
@@ -809,6 +1662,7 @@
       let filename = doc.file;
       if (docType === 'transcript') folder = 'transcripts';
       else if (docType === 'feedback') folder = 'feedbacks';
+      else if (docType === 'psycho') folder = 'psycho';
 
       fetch('./' + folder + '/' + encodeURIComponent(filename))
         .then(res => res.text())
@@ -826,7 +1680,7 @@
     },
 
     renderBodyText(docType, text) {
-      if (docType === 'chapter') {
+      if (docType === 'chapter' || docType === 'psycho') {
         DOM.readerBody.innerHTML = Utils.parseMarkdown(text);
       } else if (docType === 'transcript') {
         DOM.readerBody.innerHTML = Utils.formatTranscript(text, AppState.transcriptQuery);
@@ -1000,6 +1854,7 @@
       if (type === 'chapter' && DataStore.summaries[idx]) text = DataStore.summaries[idx].content;
       else if (type === 'transcript' && DataStore.transcripts[idx]) text = DataStore.transcripts[idx].rawText;
       else if (type === 'feedback' && DataStore.feedbacks[idx]) text = DataStore.feedbacks[idx].content;
+      else if (type === 'psycho' && DataStore.psycho[idx]) text = DataStore.psycho[idx].content;
 
       if (text) {
         navigator.clipboard.writeText(text).then(() => Utils.showToast('✓ Текст скопирован в буфер!'));
@@ -1094,6 +1949,35 @@
     setupSegmented(DOM.quotesStorylineControls, 'quotesStoryline', Grids.renderQuotes);
     setupSegmented(DOM.quotesAuthorControls, 'quotesAuthor', Grids.renderQuotes);
     setupSegmented(DOM.quotesCategoryControls, 'quotesCategory', Grids.renderQuotes);
+    setupSegmented(DOM.psychoCharControls, 'psychoChar', Grids.renderPsycho);
+    setupSegmented(DOM.calendarBranchControls, 'calendarBranch', Grids.renderCalendar);
+    setupSegmented(DOM.calendarThreatControls, 'calendarThreat', Grids.renderCalendar);
+
+    // Sanity Hero Controls
+    if (DOM.sanityHeroControls) {
+      DOM.sanityHeroControls.addEventListener('click', (e) => {
+        const btn = e.target.closest('.segment-btn');
+        if (!btn) return;
+        DOM.sanityHeroControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        AppState.sanityHero = btn.getAttribute('data-hero');
+        AppState.sanitySelectedPointIndex = 0;
+        Grids.renderSanity();
+      });
+    }
+
+    // Relationship Pair Controls
+    if (DOM.relationshipPairControls) {
+      DOM.relationshipPairControls.addEventListener('click', (e) => {
+        const btn = e.target.closest('.segment-btn');
+        if (!btn) return;
+        DOM.relationshipPairControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        AppState.selectedRelationshipPair = btn.getAttribute('data-pair');
+        AppState.selectedRelationshipStageIndex = 0;
+        Grids.renderRelationships();
+      });
+    }
 
     // Quotes Back Button
     if (DOM.quotesBtnBack) {
@@ -1103,6 +1987,45 @@
         history.pushState({ view: 'tab', tab: 'quotes' }, '', '#quotes');
         Grids.renderQuotes();
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+
+    // Interactive Markdown Links in Reader
+    if (DOM.readerBody) {
+      DOM.readerBody.addEventListener('click', (e) => {
+        const link = e.target.closest('a.reader-link');
+        if (!link) return;
+        const href = decodeURIComponent(link.getAttribute('data-href') || link.getAttribute('href') || '');
+        if (!href) return;
+
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          link.target = '_blank';
+          return;
+        }
+
+        e.preventDefault();
+
+        // 1. Check if it points to a psycho profile (.md or baseId)
+        const cleanHref = href.replace(/\.md$/, '').replace(/^\.\//, '');
+        const psychoIdx = (DataStore.psycho || []).findIndex(p => p.id === cleanHref || p.file === href || p.id === href);
+        if (psychoIdx !== -1) {
+          UnifiedReader.open('psycho', psychoIdx, true);
+          return;
+        }
+
+        // 2. Check if it points to a chapter summary
+        const summaryIdx = (DataStore.summaries || []).findIndex(s => s.id === cleanHref || s.id === href);
+        if (summaryIdx !== -1) {
+          UnifiedReader.open('chapter', summaryIdx, true);
+          return;
+        }
+
+        // 3. Check if it points to a character modal
+        const char = (DataStore.characters || []).find(c => c.id === cleanHref || c.name.toLowerCase() === cleanHref.toLowerCase());
+        if (char) {
+          CharactersModal.open(char, true);
+          return;
+        }
       });
     }
 
@@ -1179,7 +2102,7 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'quotes', 'player-notes', 'characters'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'player-notes', 'characters', 'psycho', 'sanity', 'relationships', 'calendar'].includes(hash)) {
       if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
@@ -1192,6 +2115,10 @@
   if (DOM.transcriptsCount) DOM.transcriptsCount.textContent = DataStore.transcripts.length;
   if (DOM.feedbacksCount) DOM.feedbacksCount.textContent = DataStore.feedbacks.length;
   if (DOM.charsCount) DOM.charsCount.textContent = DataStore.characters.length;
+  if (DOM.psychoCount) DOM.psychoCount.textContent = (DataStore.psycho || []).length;
+  if (DOM.sanityCount) DOM.sanityCount.textContent = Object.keys(DataStore.sanityTimeline || {}).length || 4;
+  if (DOM.relationshipsCount) DOM.relationshipsCount.textContent = Object.keys(DataStore.relationships || {}).length || 12;
+  if (DOM.calendarCount) DOM.calendarCount.textContent = Object.keys(DataStore.calendar.days || {}).length || 15;
   if (DOM.quotesCount) {
     const totalQuotesAll = (DataStore.quotes || []).reduce((sum, q) => sum + (q.totalQuotesCount || 0), 0);
     DOM.quotesCount.textContent = totalQuotesAll;
