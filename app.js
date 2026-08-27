@@ -22,8 +22,10 @@
       quotesCategory: 'all',
       psychoChar: 'all',
       calendarBranch: 'all',
-      calendarThreat: 'all'
+      calendarThreat: 'all',
+      allNotesAuthor: 'all'
     },
+    isAdmin: localStorage.getItem('porto_admin_mode') === 'true',
     sanityHero: 'molly',
     sanitySelectedPointIndex: 0,
     selectedRelationshipPair: 'molly-heather',
@@ -61,6 +63,7 @@
     feedbacksCount: document.getElementById('feedbacksCount'),
     charsCount: document.getElementById('charsCount'),
     quotesCount: document.getElementById('quotesCount'),
+    allNotesCount: document.getElementById('allNotesCount'),
     psychoCount: document.getElementById('psychoCount'),
     sanityCount: document.getElementById('sanityCount'),
     relationshipsCount: document.getElementById('relationshipsCount'),
@@ -69,6 +72,8 @@
     // Grids & Dashboards
     gamesGrid: document.getElementById('gamesGrid'),
     transcriptsGrid: document.getElementById('transcriptsGrid'),
+    allNotesGrid: document.getElementById('allNotesGrid'),
+    allNotesAuthorControls: document.getElementById('allNotesAuthorControls'),
     feedbacksGrid: document.getElementById('feedbacksGrid'),
     charactersGrid: document.getElementById('charactersGrid'),
     psychoGrid: document.getElementById('psychoGrid'),
@@ -466,6 +471,7 @@
           else if (tabKey === 'relationships') Grids.renderRelationships();
           else if (tabKey === 'calendar') Grids.renderCalendar();
           else if (tabKey === 'player-notes') Grids.renderFeedbacks();
+          else if (tabKey === 'all-notes') Grids.renderAllNotes();
           else if (tabKey === 'characters') Grids.renderCharacters();
         } catch (err) {
           console.error(`Error rendering tab ${tabKey}:`, err);
@@ -811,6 +817,114 @@
           actionText: 'Читать запись',
           onClick: () => UnifiedReader.open('feedback', idx, true)
         });
+      });
+    },
+
+    renderAllNotes() {
+      if (!DOM.allNotesGrid) return;
+      DOM.allNotesGrid.innerHTML = '';
+
+      const query = (AppState.searchQuery || '').toLowerCase();
+      const authorFilter = AppState.filters.allNotesAuthor;
+
+      let notes = AnnotationsService.getAllNotesFlat();
+
+      // Sort newest first
+      notes.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+      // Filter by Author & Search
+      notes = notes.filter(n => {
+        let matchAuthor = true;
+        if (authorFilter !== 'all') {
+          matchAuthor = (n.author || '').includes(authorFilter);
+        }
+
+        const matchSearch = !query ||
+          (n.text || '').toLowerCase().includes(query) ||
+          (n.quote || '').toLowerCase().includes(query) ||
+          (n.author || '').toLowerCase().includes(query) ||
+          (n.docTitle || '').toLowerCase().includes(query);
+
+        return matchAuthor && matchSearch;
+      });
+
+      if (DOM.allNotesCount) {
+        DOM.allNotesCount.textContent = AnnotationsService.getAllNotesFlat().length;
+      }
+
+      if (notes.length === 0) {
+        DOM.allNotesGrid.innerHTML = `
+          <div style="grid-column:1/-1; padding:5rem 1rem; text-align:center; color:var(--text-tertiary);">
+            <span style="font-size:3rem; display:block; margin-bottom:1rem;">📌</span>
+            <strong style="font-size:1.1rem; color:var(--text-secondary);">Заметок не найдено</strong>
+            <p style="margin-top:0.5rem; font-size:0.88rem;">Откройте любую главу в ридере и выделите текст, чтобы оставить заметку!</p>
+          </div>
+        `;
+        return;
+      }
+
+      notes.forEach(note => {
+        const card = document.createElement('div');
+        card.className = `app-card border-color-${note.color || 'amber'}`;
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.justifyContent = 'space-between';
+
+        const dateStr = note.createdAt ? new Date(note.createdAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+
+        let avatar = '👤';
+        if (note.author.includes('Молли') || note.author.includes('🥀')) avatar = '🥀';
+        else if (note.author.includes('Хизер') || note.author.includes('❄️')) avatar = '❄️';
+        else if (note.author.includes('Эйден') || note.author.includes('⚖️')) avatar = '⚖️';
+        else if (note.author.includes('Грейвз') || note.author.includes('🕯️')) avatar = '🕯️';
+        else if (note.author.includes('Мастер') || note.author.includes('🎭')) avatar = '🎭';
+        else if (note.author.includes('Зритель') || note.author.includes('👀')) avatar = '👀';
+
+        card.innerHTML = `
+          <div>
+            <div class="card-meta-row" style="margin-bottom:0.75rem;">
+              <span class="badge-tag tag-solo" style="font-size:0.72rem; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📖 ${Utils.escapeHtml(note.docTitle || 'Документ')}</span>
+              <span class="date-pill" style="font-size:0.72rem;">${dateStr}</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.6rem;">
+              <span style="font-size:1.1rem;">${avatar}</span>
+              <strong style="font-size:0.92rem; color:var(--gold-accent);">${Utils.escapeHtml(note.author)}</strong>
+            </div>
+
+            ${note.quote ? `<div class="drawer-note-quote" style="margin-bottom:0.75rem;">«${Utils.escapeHtml(note.quote)}»</div>` : ''}
+            <div class="drawer-note-text" style="font-size:0.9rem; line-height:1.5;">${Utils.escapeHtml(note.text)}</div>
+          </div>
+
+          <div class="card-footer-row" style="margin-top:1.25rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.06); align-items:center;">
+            <button type="button" class="card-action-link btn-jump-note" style="background:none; border:none; color:var(--accent-cyan); font-weight:600; cursor:pointer; padding:0;">
+              📖 Читать в главе →
+            </button>
+            ${AppState.isAdmin ? `<button type="button" class="btn-delete-note-feed" style="background:none; border:none; color:var(--accent); font-size:0.75rem; cursor:pointer; padding:3px 6px; border-radius:4px;">🗑️ Удалить</button>` : ''}
+          </div>
+        `;
+
+        const jumpBtn = card.querySelector('.btn-jump-note');
+        if (jumpBtn) {
+          jumpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            NotesUI.jumpToNoteDocument(note);
+          });
+        }
+
+        const delBtn = card.querySelector('.btn-delete-note-feed');
+        if (delBtn) {
+          delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (confirm('Удалить эту заметку навсегда?')) {
+              await AnnotationsService.removeNote(note.docKey, note.id);
+              Utils.showToast('Заметка удалена');
+              Grids.renderAllNotes();
+            }
+          });
+        }
+
+        DOM.allNotesGrid.appendChild(card);
       });
     },
 
@@ -2085,7 +2199,7 @@
     },
 
     handleSelectionChange() {
-      if (AppState.activeTab !== 'reader' || !DOM.readerBody) {
+      if (AppState.activeTab !== 'reader') {
         this.hideSelectionPill();
         return;
       }
@@ -2097,13 +2211,14 @@
       }
 
       const text = sel.toString().trim();
-      if (text.length < 3) {
+      if (text.length < 2) {
         this.hideSelectionPill();
         return;
       }
 
       const range = sel.getRangeAt(0);
-      if (!DOM.readerBody.contains(range.commonAncestorContainer)) {
+      const readerDoc = document.querySelector('.reader-doc');
+      if (!readerDoc || !readerDoc.contains(range.commonAncestorContainer)) {
         this.hideSelectionPill();
         return;
       }
@@ -2213,11 +2328,44 @@
       this.renderDocHighlights();
       this.updateNotesBadge();
       this.updateDrawer();
+      if (AppState.activeTab === 'all-notes') Grids.renderAllNotes();
+    },
+
+    jumpToNoteDocument(note) {
+      if (!note.docKey) return;
+      const parts = note.docKey.split(':');
+      const docType = parts[0];
+      const docId = parts.slice(1).join(':');
+
+      let list = [];
+      if (docType === 'chapter') list = DataStore.summaries;
+      else if (docType === 'transcript') list = DataStore.transcripts;
+      else if (docType === 'feedback') list = DataStore.feedbacks;
+      else if (docType === 'psycho') list = DataStore.psycho;
+
+      const idx = list.findIndex(d => (d.id === docId || d.file === docId || d.title === docId));
+      if (idx !== -1) {
+        UnifiedReader.open(docType, idx, true);
+        if (note.quote) {
+          setTimeout(() => {
+            const container = document.querySelector('.reader-doc') || DOM.readerBody;
+            const mark = container ? container.querySelector(`.player-note-highlight[data-note-id="${note.id}"]`) : null;
+            if (mark) {
+              mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              mark.classList.add('active-note-target');
+              setTimeout(() => mark.classList.remove('active-note-target'), 3600);
+              this.showPopoverForHighlight(mark, note);
+            }
+          }, 350);
+        }
+      } else {
+        Utils.showToast('Документ не найден в архиве');
+      }
     },
 
     renderDocHighlights() {
       const docKey = this.getCurrentDocKey();
-      if (!docKey || !DOM.readerBody) return;
+      if (!docKey) return;
 
       const notes = AnnotationsService.getNotes(docKey).filter(n => Boolean(n.quote));
       if (notes.length === 0) return;
@@ -2229,20 +2377,30 @@
     },
 
     highlightQuoteInBody(note) {
-      if (!note.quote || !DOM.readerBody) return;
+      if (!note.quote) return;
       const quoteClean = note.quote.trim();
-      if (quoteClean.length < 3) return;
+      if (quoteClean.length < 2) return;
+
+      const container = document.querySelector('.reader-doc') || DOM.readerBody;
+      if (!container) return;
 
       // Check if already highlighted
-      if (DOM.readerBody.querySelector(`.player-note-highlight[data-note-id="${note.id}"]`)) return;
+      if (container.querySelector(`.player-note-highlight[data-note-id="${note.id}"]`)) return;
 
       const treeWalker = document.createTreeWalker(
-        DOM.readerBody,
+        container,
         NodeFilter.SHOW_TEXT,
         {
           acceptNode(node) {
             if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
-            if (node.parentElement && (node.parentElement.closest('.player-note-highlight') || node.parentElement.tagName === 'SCRIPT' || node.parentElement.tagName === 'STYLE')) {
+            if (node.parentElement && (
+              node.parentElement.closest('.player-note-highlight') ||
+              node.parentElement.closest('.btn-copy-doc') ||
+              node.parentElement.closest('.doc-nav-btn') ||
+              node.parentElement.tagName === 'SCRIPT' ||
+              node.parentElement.tagName === 'STYLE' ||
+              node.parentElement.tagName === 'BUTTON'
+            )) {
               return NodeFilter.FILTER_REJECT;
             }
             return NodeFilter.FILTER_ACCEPT;
@@ -2316,6 +2474,10 @@
 
       if (DOM.popoverBody) DOM.popoverBody.textContent = note.text;
 
+      if (DOM.popoverBtnDelete) {
+        DOM.popoverBtnDelete.style.display = AppState.isAdmin ? 'inline-block' : 'none';
+      }
+
       // Position Popover
       const rect = markEl.getBoundingClientRect();
       const top = rect.bottom + window.scrollY;
@@ -2341,6 +2503,9 @@
       DOM.notesBadge.style.display = count > 0 ? 'inline-flex' : 'none';
       if (DOM.notesDrawerCount) {
         DOM.notesDrawerCount.textContent = count + ' ' + Utils.pluralize(count, ['заметка', 'заметки', 'заметок']);
+      }
+      if (DOM.allNotesCount) {
+        DOM.allNotesCount.textContent = AnnotationsService.getAllNotesFlat().length;
       }
     },
 
@@ -2390,7 +2555,7 @@
           <div class="drawer-note-text">${Utils.escapeHtml(note.text)}</div>
           <div class="drawer-note-actions">
             ${note.quote ? `<button class="btn-goto-quote" data-note-id="${note.id}">🎯 Найти в тексте</button>` : '<span></span>'}
-            <button class="btn-delete-note" data-note-id="${note.id}">🗑️ Удалить</button>
+            ${AppState.isAdmin ? `<button class="btn-delete-note" data-note-id="${note.id}">🗑️ Удалить</button>` : ''}
           </div>
         `;
 
@@ -2398,7 +2563,8 @@
         if (gotoBtn) {
           gotoBtn.addEventListener('click', () => {
             this.closeDrawer();
-            const mark = DOM.readerBody.querySelector(`.player-note-highlight[data-note-id="${note.id}"]`);
+            const container = document.querySelector('.reader-doc') || DOM.readerBody;
+            const mark = container ? container.querySelector(`.player-note-highlight[data-note-id="${note.id}"]`) : null;
             if (mark) {
               mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
               mark.classList.add('active-note-target');
@@ -2429,7 +2595,8 @@
         Utils.showToast('Заметка удалена');
         
         // Remove mark element
-        const mark = DOM.readerBody ? DOM.readerBody.querySelector(`.player-note-highlight[data-note-id="${noteId}"]`) : null;
+        const container = document.querySelector('.reader-doc') || DOM.readerBody;
+        const mark = container ? container.querySelector(`.player-note-highlight[data-note-id="${noteId}"]`) : null;
         if (mark) {
           const parent = mark.parentNode;
           while (mark.firstChild) {
@@ -2444,6 +2611,7 @@
 
         this.updateNotesBadge();
         this.updateDrawer();
+        if (AppState.activeTab === 'all-notes') Grids.renderAllNotes();
       }
     }
   };
@@ -2530,14 +2698,33 @@
     if (DOM.sidebarCloseBtn) DOM.sidebarCloseBtn.addEventListener('click', closeSidebar);
     if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.addEventListener('click', closeSidebar);
 
-    // Global Search
+    // Global Search & Admin Toggle (Password: 22618)
     if (DOM.appSearch) {
       DOM.appSearch.addEventListener('input', (e) => {
         AppState.searchQuery = e.target.value.toLowerCase().trim();
         if (AppState.activeTab === 'reader') {
           Navigation.switchTab(AppState.reader.sourceTab, true);
+        } else if (AppState.activeTab === 'all-notes') {
+          Grids.renderAllNotes();
         } else {
           Navigation.switchTab(AppState.activeTab, false);
+        }
+      });
+
+      DOM.appSearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const val = DOM.appSearch.value.trim();
+          if (val === '22618') {
+            e.preventDefault();
+            AppState.isAdmin = !AppState.isAdmin;
+            localStorage.setItem('porto_admin_mode', AppState.isAdmin ? 'true' : 'false');
+            DOM.appSearch.value = '';
+            AppState.searchQuery = '';
+            Utils.showToast(AppState.isAdmin ? '👑 Режим Администратора ВКЛЮЧЕН (доступно удаление)' : '🔒 Режим Администратора ВЫКЛЮЧЕН');
+            if (AppState.activeTab === 'all-notes') Grids.renderAllNotes();
+            NotesUI.updateDrawer();
+            return;
+          }
         }
       });
 
@@ -2700,6 +2887,7 @@
     setupSegmented(DOM.quotesStorylineControls, 'quotesStoryline', Grids.renderQuotes);
     setupSegmented(DOM.quotesAuthorControls, 'quotesAuthor', Grids.renderQuotes);
     setupSegmented(DOM.quotesCategoryControls, 'quotesCategory', Grids.renderQuotes);
+    setupSegmented(DOM.allNotesAuthorControls, 'allNotesAuthor', Grids.renderAllNotes);
     setupSegmented(DOM.psychoCharControls, 'psychoChar', Grids.renderPsycho);
     setupSegmented(DOM.calendarBranchControls, 'calendarBranch', Grids.renderCalendar);
     setupSegmented(DOM.calendarThreatControls, 'calendarThreat', Grids.renderCalendar);
@@ -2856,7 +3044,7 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'quotes', 'player-notes', 'characters', 'psycho', 'sanity', 'relationships', 'calendar'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'player-notes', 'characters', 'psycho', 'sanity', 'relationships', 'calendar'].includes(hash)) {
       if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
@@ -2870,6 +3058,7 @@
   if (DOM.feedbacksCount) DOM.feedbacksCount.textContent = DataStore.feedbacks.length;
   if (DOM.charsCount) DOM.charsCount.textContent = DataStore.characters.length;
   if (DOM.psychoCount) DOM.psychoCount.textContent = (DataStore.psycho || []).length;
+  if (DOM.allNotesCount) DOM.allNotesCount.textContent = AnnotationsService.getAllNotesFlat().length;
   if (DOM.sanityCount) DOM.sanityCount.textContent = Object.keys(DataStore.sanityTimeline || {}).length || 4;
   if (DOM.relationshipsCount) DOM.relationshipsCount.textContent = Object.keys(DataStore.relationships || {}).length || 12;
   if (DOM.calendarCount) DOM.calendarCount.textContent = Object.keys(DataStore.calendar.days || {}).length || 15;
