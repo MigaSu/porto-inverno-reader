@@ -141,6 +141,7 @@
     notesDrawer: document.getElementById('notesDrawer'),
     notesDrawerBackdrop: document.getElementById('notesDrawerBackdrop'),
     btnCloseNotesDrawer: document.getElementById('btnCloseNotesDrawer'),
+    btnSyncNotes: document.getElementById('btnSyncNotes'),
     notesDrawerCount: document.getElementById('notesDrawerCount'),
     btnAddGeneralNote: document.getElementById('btnAddGeneralNote'),
     notesDrawerList: document.getElementById('notesDrawerList'),
@@ -1959,9 +1960,22 @@
         DOM.btnNotes.addEventListener('click', () => this.openDrawer());
       }
 
-      // Drawer close buttons
+      // Drawer close & sync buttons
       if (DOM.btnCloseNotesDrawer) {
         DOM.btnCloseNotesDrawer.addEventListener('click', () => this.closeDrawer());
+      }
+      if (DOM.btnSyncNotes) {
+        DOM.btnSyncNotes.addEventListener('click', async () => {
+          DOM.btnSyncNotes.style.transform = 'rotate(360deg)';
+          DOM.btnSyncNotes.style.transition = 'transform 0.5s ease';
+          setTimeout(() => { DOM.btnSyncNotes.style.transform = 'none'; }, 600);
+          Utils.showToast('⏳ Синхронизация с облаком...');
+          await AnnotationsService.syncFromCloud();
+          this.updateDrawer();
+          this.renderDocHighlights();
+          this.updateNotesBadge();
+          Utils.showToast('✓ Заметки обновлены!');
+        });
       }
       if (DOM.notesDrawerBackdrop) {
         DOM.notesDrawerBackdrop.addEventListener('click', () => this.closeDrawer());
