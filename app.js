@@ -1749,13 +1749,14 @@
   };
 
   // =========================================================================
-  // ANNOTATIONS & PLAYER NOTES SERVICE (CLOUD + LOCAL STORAGE)
+  // ANNOTATIONS & PLAYER NOTES SERVICE (GLOBAL SHARED CLOUD + LOCAL CACHE)
   // =========================================================================
   const AnnotationsService = {
     storageKey: 'porto_player_notes_v1',
-    cloudApiUrl: 'https://api.restful-api.dev/objects',
-    cloudIndexKey: 'porto_inverno_notes_registry_v1',
+    sharedCloudId: 'ff8081819ff5b11001a04565f6893ca5',
+    cloudApiUrl: 'https://api.restful-api.dev/objects/ff8081819ff5b11001a04565f6893ca5',
     cache: {}, // { [docKey]: [Note, Note, ...] }
+    isSyncing: false,
 
     init() {
       try {
@@ -1768,22 +1769,13 @@
         this.cache = {};
       }
 
-      // Seed initial sample note if empty
-      const sampleKey = 'chapter:2026-08-20 Молли и Хизер, ч.12';
-      if (!this.cache[sampleKey] || this.cache[sampleKey].length === 0) {
-        this.cache[sampleKey] = [
-          {
-            id: 'note_canon_1',
-            docKey: sampleKey,
-            docTitle: '2026-08-20 Молли и Хизер, ч.12',
-            quote: 'Я за всю жизнь прочитал всего пять книг. Но в одной из них писали про эффект бабочки.',
-            author: '❄️ Хизер',
-            color: 'amber',
-            text: 'Один из самых трогательных диалогов Вани и Хизер в особняке.',
-            createdAt: '1931-10-25T20:30:00.000Z'
-          }
-        ];
-      }
+      // Initial cloud sync
+      this.syncFromCloud();
+
+      // Periodic background sync every 20 seconds
+      setInterval(() => {
+        this.syncFromCloud();
+      }, 20000);
     },
 
     saveToLocal() {
@@ -1802,6 +1794,14 @@
       return (this.cache[docKey] || []).length;
     },
 
+    getAllNotesFlat() {
+      const all = [];
+      Object.keys(this.cache).forEach(docKey => {
+        (this.cache[docKey] || []).forEach(n => all.push(n));
+      });
+      return all;
+    },
+
     async addNote(note) {
       if (!note.docKey) return null;
       if (!this.cache[note.docKey]) {
@@ -1810,8 +1810,8 @@
       this.cache[note.docKey].push(note);
       this.saveToLocal();
 
-      // Background Cloud Sync
-      this.syncNoteToCloud(note).catch(err => console.warn('Cloud sync error:', err));
+      // Push immediately to global cloud
+      this.pushNoteToCloud(note).catch(err => console.warn('Cloud sync error:', err));
       return note;
     },
 
@@ -1819,113 +1819,115 @@
       if (!this.cache[docKey]) return false;
       const idx = this.cache[docKey].findIndex(n => n.id === noteId);
       if (idx !== -1) {
-        const removed = this.cache[docKey].splice(idx, 1)[0];
+        this.cache[docKey].splice(idx, 1);
         this.saveToLocal();
-        if (removed && removed.cloudId) {
-          this.deleteFromCloud(removed.cloudId).catch(err => console.warn('Cloud delete error:', err));
-        }
+        this.deleteNoteFromCloud(noteId).catch(err => console.warn('Cloud delete error:', err));
         return true;
       }
       return false;
     },
 
-    async syncNoteToCloud(note) {
+    async syncFromCloud() {
+      if (this.isSyncing) return;
+      this.isSyncing = true;
       try {
-        const payload = {
-          name: 'porto_note_' + note.docKey,
-          data: {
-            noteId: note.id,
-            docKey: note.docKey,
-            docTitle: note.docTitle || '',
-            quote: note.quote || '',
-            author: note.author || 'Зритель',
-            color: note.color || 'amber',
-            text: note.text || '',
-            createdAt: note.createdAt || new Date().toISOString()
-          }
-        };
-
-        const res = await fetch(this.cloudApiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
+        const res = await fetch(this.cloudApiUrl);
         if (res.ok) {
           const json = await res.json();
-          if (json && json.id) {
-            note.cloudId = json.id;
-            this.saveToLocal();
-            this.updateRegistry(json.id);
-          }
-        }
-      } catch (err) {
-        console.warn('Cloud save failed, note kept locally:', err);
-      }
-    },
-
-    async deleteFromCloud(cloudId) {
-      try {
-        await fetch(`${this.cloudApiUrl}/${cloudId}`, { method: 'DELETE' });
-      } catch (e) {
-        console.warn('Cloud delete error:', e);
-      }
-    },
-
-    async updateRegistry(cloudId) {
-      try {
-        let registry = JSON.parse(localStorage.getItem(this.cloudIndexKey) || '[]');
-        if (!registry.includes(cloudId)) {
-          registry.push(cloudId);
-          localStorage.setItem(this.cloudIndexKey, JSON.stringify(registry));
-        }
-      } catch (e) {}
-    },
-
-    async fetchDocNotes(docKey) {
-      // In addition to local notes, tries to sync latest from registry / cloud
-      try {
-        const registry = JSON.parse(localStorage.getItem(this.cloudIndexKey) || '[]');
-        if (registry.length > 0) {
-          const idsQuery = registry.slice(-40).join(',');
-          const res = await fetch(`${this.cloudApiUrl}?id=${idsQuery}`);
-          if (res.ok) {
-            const list = await res.json();
-            if (Array.isArray(list)) {
-              let updated = false;
-              list.forEach(item => {
-                if (item && item.data && item.data.docKey) {
-                  const dK = item.data.docKey;
-                  if (!this.cache[dK]) this.cache[dK] = [];
-                  const exists = this.cache[dK].some(n => n.id === item.data.noteId);
-                  if (!exists) {
-                    this.cache[dK].push({
-                      id: item.data.noteId,
-                      cloudId: item.id,
-                      docKey: item.data.docKey,
-                      docTitle: item.data.docTitle,
-                      quote: item.data.quote,
-                      author: item.data.author,
-                      color: item.data.color,
-                      text: item.data.text,
-                      createdAt: item.data.createdAt
-                    });
-                    updated = true;
-                  }
+          const cloudNotes = json?.data?.notes || [];
+          if (Array.isArray(cloudNotes)) {
+            let hasNew = false;
+            cloudNotes.forEach(cn => {
+              if (cn && cn.docKey && cn.id) {
+                if (!this.cache[cn.docKey]) this.cache[cn.docKey] = [];
+                const localIdx = this.cache[cn.docKey].findIndex(n => n.id === cn.id);
+                if (localIdx === -1) {
+                  this.cache[cn.docKey].push(cn);
+                  hasNew = true;
+                } else {
+                  this.cache[cn.docKey][localIdx] = { ...this.cache[cn.docKey][localIdx], ...cn };
                 }
-              });
-              if (updated) {
-                this.saveToLocal();
+              }
+            });
+
+            if (hasNew) {
+              this.saveToLocal();
+              if (AppState.activeTab === 'reader') {
                 NotesUI.renderDocHighlights();
-                NotesUI.updateDrawer();
                 NotesUI.updateNotesBadge();
+                NotesUI.updateDrawer();
               }
             }
           }
         }
-      } catch (e) {
-        console.warn('Background sync note fetch failed:', e);
+      } catch (err) {
+        console.warn('Sync from cloud failed, using offline cache:', err);
+      } finally {
+        this.isSyncing = false;
       }
+    },
+
+    async pushNoteToCloud(note) {
+      try {
+        let cloudNotes = [];
+        try {
+          const getRes = await fetch(this.cloudApiUrl);
+          if (getRes.ok) {
+            const getJson = await getRes.json();
+            cloudNotes = getJson?.data?.notes || [];
+          }
+        } catch(e) {}
+
+        const exists = cloudNotes.some(n => n.id === note.id);
+        if (!exists) {
+          cloudNotes.push(note);
+        }
+
+        // Merge all local notes
+        const localAll = this.getAllNotesFlat();
+        localAll.forEach(ln => {
+          if (!cloudNotes.some(cn => cn.id === ln.id)) {
+            cloudNotes.push(ln);
+          }
+        });
+
+        await fetch(this.cloudApiUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'PORTO_INVERNO_PUBLIC_NOTES_STORE_V1',
+            data: { notes: cloudNotes }
+          })
+        });
+      } catch (err) {
+        console.warn('Cloud sync push failed:', err);
+      }
+    },
+
+    async deleteNoteFromCloud(noteId) {
+      try {
+        const getRes = await fetch(this.cloudApiUrl);
+        if (getRes.ok) {
+          const getJson = await getRes.json();
+          let cloudNotes = getJson?.data?.notes || [];
+          cloudNotes = cloudNotes.filter(n => n.id !== noteId);
+
+          await fetch(this.cloudApiUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: 'PORTO_INVERNO_PUBLIC_NOTES_STORE_V1',
+              data: { notes: cloudNotes }
+            })
+          });
+        }
+      } catch (err) {
+        console.warn('Cloud note delete failed:', err);
+      }
+    },
+
+    fetchDocNotes(docKey) {
+      this.syncFromCloud();
     }
   };
 
