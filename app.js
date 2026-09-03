@@ -6,7 +6,7 @@
   'use strict';
 
   // Master Data Store
-  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], quotes: [], psycho: [], sanityTimeline: {}, relationships: {}, calendar: { days: {}, monthInfo: {} } };
+  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], quotes: [], psycho: [], relationships: {} };
 
   // Application State
   const AppState = {
@@ -21,16 +21,11 @@
       quotesAuthor: 'all',
       quotesCategory: 'all',
       psychoChar: 'all',
-      calendarBranch: 'all',
-      calendarThreat: 'all',
       allNotesAuthor: 'all'
     },
     isAdmin: localStorage.getItem('porto_admin_mode') === 'true',
-    sanityHero: 'molly',
-    sanitySelectedPointIndex: 0,
     selectedRelationshipPair: 'molly-heather',
     selectedRelationshipStageIndex: 0,
-    selectedCalendarDate: '1931-10-14',
     quotesSelectedSession: null,
     searchQuery: '',
     transcriptQuery: '',
@@ -65,9 +60,7 @@
     quotesCount: document.getElementById('quotesCount'),
     allNotesCount: document.getElementById('allNotesCount'),
     psychoCount: document.getElementById('psychoCount'),
-    sanityCount: document.getElementById('sanityCount'),
     relationshipsCount: document.getElementById('relationshipsCount'),
-    calendarCount: document.getElementById('calendarCount'),
 
     // Grids & Dashboards
     gamesGrid: document.getElementById('gamesGrid'),
@@ -77,13 +70,8 @@
     feedbacksGrid: document.getElementById('feedbacksGrid'),
     charactersGrid: document.getElementById('charactersGrid'),
     psychoGrid: document.getElementById('psychoGrid'),
-    sanityHeroControls: document.getElementById('sanityHeroControls'),
-    sanityDashboardContainer: document.getElementById('sanityDashboardContainer'),
     relationshipPairControls: document.getElementById('relationshipPairControls'),
     relationshipsContainer: document.getElementById('relationshipsContainer'),
-    calendarBranchControls: document.getElementById('calendarBranchControls'),
-    calendarThreatControls: document.getElementById('calendarThreatControls'),
-    calendarContainer: document.getElementById('calendarContainer'),
 
     // Quotes Controls and Views
     quotesGrid: document.getElementById('quotesGamesView'),
@@ -467,9 +455,7 @@
           else if (tabKey === 'transcripts') Grids.renderTranscripts();
           else if (tabKey === 'quotes') Grids.renderQuotes();
           else if (tabKey === 'psycho') Grids.renderPsycho();
-          else if (tabKey === 'sanity') Grids.renderSanity();
           else if (tabKey === 'relationships') Grids.renderRelationships();
-          else if (tabKey === 'calendar') Grids.renderCalendar();
           else if (tabKey === 'player-notes') Grids.renderFeedbacks();
           else if (tabKey === 'all-notes') Grids.renderAllNotes();
           else if (tabKey === 'characters') Grids.renderCharacters();
@@ -1053,224 +1039,6 @@
       });
     },
 
-    renderSanity() {
-      if (!DOM.sanityDashboardContainer) return;
-      DOM.sanityDashboardContainer.innerHTML = '';
-
-      const heroKey = AppState.sanityHero || 'molly';
-      const allSanity = DataStore.sanityTimeline || {};
-      const hero = allSanity[heroKey];
-
-      if (!hero || !hero.points || hero.points.length === 0) {
-        DOM.sanityDashboardContainer.innerHTML = '<div style="padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Данные ментальной шкалы недоступны</div>';
-        return;
-      }
-
-      const points = hero.points;
-      let selIdx = AppState.sanitySelectedPointIndex;
-      if (selIdx < 0 || selIdx >= points.length) selIdx = points.length - 1;
-      const selPoint = points[selIdx];
-
-      // 1. Hero Summary Header Card
-      const heroAvatarInitial = heroKey === 'molly' ? 'М' : heroKey === 'heather' ? 'Х' : heroKey === 'aiden' ? 'Э' : 'Г';
-      const currentScoreColor = hero.currentScore >= 70 ? 'var(--status-alive-text)' : hero.currentScore >= 40 ? 'var(--status-warning-text)' : 'var(--status-dead-text)';
-
-      const dashboard = document.createElement('div');
-      dashboard.className = 'sanity-dashboard';
-
-      dashboard.innerHTML = `
-        <div class="sanity-hero-card">
-          <div class="sanity-hero-top">
-            <div class="sanity-hero-info">
-              <div class="sanity-hero-avatar ${hero.badgeClass}">${heroAvatarInitial}</div>
-              <div class="sanity-hero-title-group">
-                <h3>${Utils.escapeHtml(hero.characterName)}</h3>
-                <span class="badge-tag ${hero.badgeClass}">${Utils.escapeHtml(hero.archetype)}</span>
-              </div>
-            </div>
-            <div class="sanity-score-badge">
-              <span style="font-size:0.78rem; color:var(--text-tertiary); text-transform:uppercase; font-weight:700;">Текущая стабильность:</span>
-              <span class="sanity-score-num" style="color:${currentScoreColor};">${hero.currentScore}%</span>
-            </div>
-          </div>
-
-          <div class="sanity-hero-meta-grid">
-            <div class="sanity-meta-box">
-              <span class="sanity-meta-label">Базовая травма:</span>
-              <span class="sanity-meta-val">${Utils.escapeHtml(hero.baseTrauma)}</span>
-            </div>
-            <div class="sanity-meta-box">
-              <span class="sanity-meta-label">Ключевой фактор риска:</span>
-              <span class="sanity-meta-val">${Utils.escapeHtml(hero.primaryRisk)}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Chart Card -->
-        <div class="sanity-chart-card">
-          <div class="sanity-chart-header">
-            <div>
-              <h4 style="font-size:1.05rem; font-weight:700; color:var(--text-primary);">Интерактивная кардиограмма стабильности</h4>
-              <p style="font-size:0.8rem; color:var(--text-tertiary);">Нажмите на любую точку хронологии, чтобы изучить фактор слома и реакцию героя</p>
-            </div>
-            <div class="sanity-chart-legend">
-              <span><span class="legend-dot" style="background:#30d158;"></span>Контроль (>70%)</span>
-              <span><span class="legend-dot" style="background:#ff9f0a;"></span>Тревога (40–70%)</span>
-              <span><span class="legend-dot" style="background:#ff453a;"></span>Кризис / Срыв (&lt;40%)</span>
-            </div>
-          </div>
-
-          <div class="sanity-svg-wrap">
-            <svg class="sanity-svg" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet">
-              <defs>
-                <linearGradient id="sanityLineGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stop-color="var(--accent)" />
-                  <stop offset="100%" stop-color="var(--gold-accent)" />
-                </linearGradient>
-                <linearGradient id="zoneGreen" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="rgba(48, 209, 88, 0.12)" />
-                  <stop offset="100%" stop-color="rgba(48, 209, 88, 0.02)" />
-                </linearGradient>
-                <linearGradient id="zoneOrange" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="rgba(255, 159, 10, 0.1)" />
-                  <stop offset="100%" stop-color="rgba(255, 159, 10, 0.02)" />
-                </linearGradient>
-                <linearGradient id="zoneRed" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="rgba(255, 69, 58, 0.15)" />
-                  <stop offset="100%" stop-color="rgba(255, 69, 58, 0.04)" />
-                </linearGradient>
-              </defs>
-
-              <!-- Background Risk Zones -->
-              <rect x="50" y="20" width="820" height="70" fill="url(#zoneGreen)" rx="4" />
-              <rect x="50" y="90" width="820" height="75" fill="url(#zoneOrange)" rx="4" />
-              <rect x="50" y="165" width="820" height="75" fill="url(#zoneRed)" rx="4" />
-
-              <!-- Horizontal Grid Lines -->
-              <line x1="50" y1="20" x2="870" y2="20" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
-              <text x="42" y="24" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">100%</text>
-
-              <line x1="50" y1="90" x2="870" y2="90" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
-              <text x="42" y="94" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">70%</text>
-
-              <line x1="50" y1="165" x2="870" y2="165" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
-              <text x="42" y="169" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">40%</text>
-
-              <line x1="50" y1="240" x2="870" y2="240" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4" />
-              <text x="42" y="244" fill="var(--text-tertiary)" font-size="10" text-anchor="end" font-family="var(--font-mono)">0%</text>
-
-              <!-- Main Curve -->
-              <polyline id="sanityPolyline" fill="none" stroke="url(#sanityLineGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-
-              <!-- Nodes Container -->
-              <g id="sanitySvgNodes"></g>
-            </svg>
-          </div>
-        </div>
-
-        <!-- Detail Breakdown Card -->
-        <div class="sanity-detail-card">
-          <div class="sanity-detail-header">
-            <div class="sanity-detail-title-group">
-              <h4>${Utils.escapeHtml(selPoint.title)}</h4>
-              <span class="sanity-detail-date">📅 ${Utils.escapeHtml(selPoint.gameDate)}</span>
-            </div>
-            <span class="badge-tag ${selPoint.statusClass}" style="font-size:0.88rem; font-weight:700; background:rgba(255,255,255,0.06); padding:0.4rem 0.85rem;">
-              Стабильность: ${selPoint.score}% (${selPoint.status})
-            </span>
-          </div>
-
-          <div class="sanity-detail-body">
-            <div class="sanity-detail-field">
-              <span class="sanity-detail-label">⚡ Триггерное событие / Фактор слома:</span>
-              <p style="color:var(--text-primary);">${Utils.escapeHtml(selPoint.trigger)}</p>
-            </div>
-            <div class="sanity-detail-field">
-              <span class="sanity-detail-label">🧠 Психологическая реакция:</span>
-              <p style="color:var(--text-secondary);">${Utils.escapeHtml(selPoint.reaction)}</p>
-            </div>
-            <div class="sanity-quote-box">
-              ${Utils.escapeHtml(selPoint.quote)}
-            </div>
-          </div>
-
-          <div class="sanity-detail-actions">
-            ${selPoint.chapterId ? `<button class="btn-quote-action" id="btnSanityOpenChapter">📖 Читать главу сессии</button>` : ''}
-          </div>
-        </div>
-      `;
-
-      DOM.sanityDashboardContainer.appendChild(dashboard);
-
-      // Compute node coordinates and populate SVG
-      const padX = 70;
-      const chartW = 870 - padX;
-      const topY = 20;
-      const botY = 240;
-      const rangeY = botY - topY;
-
-      const coords = points.map((p, idx) => {
-        const x = points.length === 1 ? padX + chartW / 2 : padX + (idx / (points.length - 1)) * chartW;
-        const y = botY - (p.score / 100) * rangeY;
-        return { x, y, p, idx };
-      });
-
-      const polylineEl = dashboard.querySelector('#sanityPolyline');
-      if (polylineEl) {
-        polylineEl.setAttribute('points', coords.map(c => `${c.x},${c.y}`).join(' '));
-      }
-
-      const nodesGroup = dashboard.querySelector('#sanitySvgNodes');
-      if (nodesGroup) {
-        coords.forEach(c => {
-          const isAct = c.idx === selIdx;
-          const isCritical = c.p.score < 30;
-          const nodeColor = c.p.score >= 70 ? '#30d158' : c.p.score >= 40 ? '#ff9f0a' : '#ff453a';
-
-          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-          g.setAttribute('class', `sanity-node ${isAct ? 'active' : ''}`);
-          g.style.color = nodeColor;
-
-          let pulseHtml = '';
-          if (isCritical) {
-            pulseHtml = `<circle class="sanity-pulse-ring" cx="${c.x}" cy="${c.y}" r="12" fill="none" stroke="${nodeColor}" stroke-width="1.5" />`;
-          }
-
-          g.innerHTML = `
-            <title>${Utils.escapeHtml(c.p.title)} (${c.p.gameDate}): Стабильность ${c.p.score}% — ${Utils.escapeHtml(c.p.status)}</title>
-            ${pulseHtml}
-            <circle class="point-circle" cx="${c.x}" cy="${c.y}" r="${isAct ? '10' : '7'}" fill="${nodeColor}" stroke="${isAct ? '#ffffff' : 'rgba(0,0,0,0.6)'}" stroke-width="${isAct ? '3' : '2'}" />
-            <text x="${c.x}" y="${botY + 22}" fill="${isAct ? 'var(--text-primary)' : 'var(--text-tertiary)'}" font-size="10" font-weight="${isAct ? '700' : '500'}" text-anchor="middle" font-family="var(--font-sans)">
-              ${c.p.gameDate.split(',')[0].replace(' 1931', '').trim()}
-            </text>
-            <text x="${c.x}" y="${c.y - 12}" fill="${nodeColor}" font-size="10" font-weight="700" text-anchor="middle" font-family="var(--font-mono)">
-              ${c.p.score}%
-            </text>
-          `;
-
-          g.addEventListener('click', () => {
-            AppState.sanitySelectedPointIndex = c.idx;
-            Grids.renderSanity();
-          });
-
-          nodesGroup.appendChild(g);
-        });
-      }
-
-      // Action Button listener
-      const btnOpenChapter = dashboard.querySelector('#btnSanityOpenChapter');
-      if (btnOpenChapter && selPoint.chapterId) {
-        btnOpenChapter.addEventListener('click', () => {
-          const sumIdx = (DataStore.summaries || []).findIndex(s => s.id === selPoint.chapterId);
-          if (sumIdx !== -1) {
-            UnifiedReader.open('chapter', sumIdx, true);
-          } else {
-            Navigation.switchTab('games', true);
-          }
-        });
-      }
-    },
-
     renderRelationships() {
       if (!DOM.relationshipsContainer) return;
       DOM.relationshipsContainer.innerHTML = '';
@@ -1484,240 +1252,6 @@
       DOM.relationshipsContainer.appendChild(container);
     },
 
-    renderCalendar() {
-      if (!DOM.calendarContainer) return;
-      DOM.calendarContainer.innerHTML = '';
-
-      const calendarData = DataStore.calendar || { days: {}, monthInfo: {} };
-      const daysMap = calendarData.days || {};
-      const monthInfo = calendarData.monthInfo || { year: 1931, month: 10, totalDays: 31, startDayOfWeek: 4 };
-
-      // Apply branch and threat filters
-      const filterBranch = AppState.filters.calendarBranch || 'all';
-      const filterThreat = AppState.filters.calendarThreat || 'all';
-
-      let selDateKey = AppState.selectedCalendarDate || '1931-10-14';
-      if (!daysMap[selDateKey]) {
-        const availableDates = Object.keys(daysMap).sort();
-        selDateKey = availableDates[0] || '1931-10-09';
-        AppState.selectedCalendarDate = selDateKey;
-      }
-
-      const selDayData = daysMap[selDateKey] || null;
-
-      // Filter incidents for currently selected day
-      let displayedIncidents = [];
-      if (selDayData && selDayData.incidents) {
-        displayedIncidents = selDayData.incidents.filter(inc => {
-          if (filterBranch !== 'all' && inc.branch !== filterBranch) return false;
-          if (filterThreat === 'critical' && selDayData.threatClass !== 'threat-critical') return false;
-          if (filterThreat === 'high' && selDayData.threatClass !== 'threat-high' && selDayData.threatClass !== 'threat-critical') return false;
-          return true;
-        });
-      }
-
-      const container = document.createElement('div');
-      container.className = 'calendar-dashboard';
-
-      // 1. Quick Presets Bar
-      const presetsHtml = `
-        <div class="calendar-presets-bar">
-          <span class="preset-label">Ключевые даты:</span>
-          <div class="preset-chips">
-            <button class="preset-btn ${selDateKey === '1931-10-09' ? 'active' : ''}" data-date="1931-10-09">🌉 9 окт (Мост & Захват)</button>
-            <button class="preset-btn ${selDateKey === '1931-10-10' ? 'active' : ''}" data-date="1931-10-10">🌧️ 10 окт (Покушение на Хизер)</button>
-            <button class="preset-btn ${selDateKey === '1931-10-13' ? 'active' : ''}" data-date="1931-10-13">🪜 13 окт (Форточка & Тюрьма)</button>
-            <button class="preset-btn ${selDateKey === '1931-10-14' ? 'active' : ''}" data-date="1931-10-14">🩸 14 окт (Кровавая среда)</button>
-            <button class="preset-btn ${selDateKey === '1931-10-20' ? 'active' : ''}" data-date="1931-10-20">💔 20 окт (Гибель Каролины)</button>
-            <button class="preset-btn ${selDateKey === '1931-10-24' ? 'active' : ''}" data-date="1931-10-24">🎖️ 24 окт (Сбор Крауча & Риган)</button>
-            <button class="preset-btn ${selDateKey === '1931-10-25' ? 'active' : ''}" data-date="1931-10-25">🔥 25 окт (Пекарня & Суд Крауча)</button>
-            <button class="preset-btn ${selDateKey === '1931-10-26' ? 'active' : ''}" data-date="1931-10-26">🕊️ 26 окт (Кухонный пакт)</button>
-          </div>
-        </div>
-      `;
-
-      // 2. Monthly Grid Calculation
-      const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-      let offset = (monthInfo.startDayOfWeek === 0 ? 7 : monthInfo.startDayOfWeek) - 1; // for Thu (4): offset = 3
-
-      let gridCellsHtml = '';
-      for (let i = 0; i < offset; i++) {
-        gridCellsHtml += `<div class="cal-cell empty"></div>`;
-      }
-
-      for (let d = 1; d <= monthInfo.totalDays; d++) {
-        const dayStr = d < 10 ? '0' + d : '' + d;
-        const dateKey = `1931-10-${dayStr}`;
-        const dayObj = daysMap[dateKey];
-        const isSelected = dateKey === selDateKey;
-        const hasIncidents = Boolean(dayObj && dayObj.incidents && dayObj.incidents.length > 0);
-
-        let threatClass = dayObj ? (dayObj.threatClass || 'threat-medium') : '';
-        let incCount = dayObj && dayObj.incidents ? dayObj.incidents.length : 0;
-
-        gridCellsHtml += `
-          <div class="cal-cell ${hasIncidents ? 'has-events' : ''} ${isSelected ? 'selected' : ''} ${threatClass}" data-date="${dateKey}">
-            <div class="cal-cell-header">
-              <span class="cal-cell-day">${d}</span>
-              ${incCount > 0 ? `<span class="cal-inc-badge">${incCount}</span>` : ''}
-            </div>
-            ${hasIncidents ? `
-              <div class="cal-dots-row">
-                ${dayObj.incidents.some(i => i.branch.includes('Молли')) ? '<span class="cal-dot dot-molly" title="Молли & Хизер"></span>' : ''}
-                ${dayObj.incidents.some(i => i.branch.includes('Эйден')) ? '<span class="cal-dot dot-aiden" title="Эйден & Малкольм"></span>' : ''}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }
-
-      container.innerHTML = `
-        <!-- Quick Preset Jumps -->
-        ${presetsHtml}
-
-        <!-- Month Grid Card -->
-        <div class="cal-month-card">
-          <div class="cal-month-header">
-            <div class="cal-month-title">
-              <span class="cal-month-icon">🗓️</span>
-              <h3>Октябрь 1931</h3>
-            </div>
-            <div class="cal-legend">
-              <span class="legend-item"><span class="legend-dot dot-critical"></span> Чрезвычайный</span>
-              <span class="legend-item"><span class="legend-dot dot-high"></span> Высокая угроза</span>
-              <span class="legend-item"><span class="cal-dot dot-molly"></span> Ветка Девушек</span>
-              <span class="legend-item"><span class="cal-dot dot-aiden"></span> Ветка Парней</span>
-            </div>
-          </div>
-
-          <div class="cal-weekdays-row">
-            ${weekdays.map(w => `<div class="cal-weekday">${w}</div>`).join('')}
-          </div>
-
-          <div class="cal-grid">
-            ${gridCellsHtml}
-          </div>
-        </div>
-
-        <!-- Selected Day Dossier Inspector -->
-        ${selDayData ? `
-          <div class="cal-day-inspector">
-            <div class="cal-inspector-header">
-              <div class="cal-inspector-title-group">
-                <div class="cal-inspector-meta">
-                  <span class="date-pill" style="font-size:0.95rem; font-weight:700;">📅 ${Utils.escapeHtml(selDayData.displayDate)}, ${Utils.escapeHtml(selDayData.dayOfWeek)}</span>
-                  <span class="threat-pill ${selDayData.threatClass || 'threat-high'}">⚠️ ${Utils.escapeHtml(selDayData.threatLevel)}</span>
-                </div>
-                <h3 class="cal-inspector-headline">${Utils.escapeHtml(selDayData.headline)}</h3>
-                <p class="cal-inspector-summary">${Utils.escapeHtml(selDayData.summary)}</p>
-              </div>
-            </div>
-
-            <!-- Incidents Timeline for Selected Day -->
-            <div class="cal-incidents-timeline">
-              <h4 class="cal-timeline-title">Хроника операций дня (${displayedIncidents.length} инцидентов)</h4>
-              
-              ${displayedIncidents.length === 0 ? `
-                <div style="padding:2rem; text-align:center; color:var(--text-tertiary);">Нет инцидентов, соответствующих выбранным фильтрам.</div>
-              ` : displayedIncidents.map((inc, iIdx) => `
-                <div class="cal-incident-card">
-                  <div class="cal-inc-header">
-                    <div class="cal-inc-time-group">
-                      <span class="cal-time-pill">${Utils.escapeHtml(inc.time)} (${Utils.escapeHtml(inc.timeOfDay)})</span>
-                      <span class="badge-tag ${inc.badgeClass || 'tag-solo'}">${Utils.escapeHtml(inc.branch)}</span>
-                    </div>
-                    ${inc.chapterId ? `
-                      <button class="btn-icon-text btn-cal-read" data-chapter-id="${Utils.escapeHtml(inc.chapterId)}" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-card); padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--gold-accent);">
-                        📖 Читать главу
-                      </button>
-                    ` : ''}
-                  </div>
-
-                  <h4 class="cal-inc-title">${Utils.escapeHtml(inc.title)}</h4>
-                  
-                  <div class="cal-inc-location">
-                    <span class="loc-icon">📍</span>
-                    <span class="loc-text">${Utils.escapeHtml(inc.location)}</span>
-                  </div>
-
-                  <p class="cal-inc-desc">${Utils.escapeHtml(inc.description)}</p>
-
-                  <!-- Participants -->
-                  ${inc.participants && inc.participants.length > 0 ? `
-                    <div class="cal-inc-participants">
-                      <span class="part-label">Участники:</span>
-                      <div class="part-chips">
-                        ${inc.participants.map(p => `<span class="part-chip">${Utils.escapeHtml(p)}</span>`).join('')}
-                      </div>
-                    </div>
-                  ` : ''}
-
-                  <!-- Quote Callout -->
-                  ${inc.quote ? `
-                    <div class="cal-inc-quote">
-                      <span class="quote-icon">💬</span>
-                      <span class="quote-text">${Utils.escapeHtml(inc.quote)}</span>
-                    </div>
-                  ` : ''}
-
-                  <!-- Intelligence Box -->
-                  ${inc.intel ? `
-                    <div class="cal-inc-intel">
-                      <span class="intel-icon">🕵️</span>
-                      <div class="intel-content">
-                        <span class="intel-label">Разведданные заговора:</span>
-                        <span class="intel-text">${Utils.escapeHtml(inc.intel)}</span>
-                      </div>
-                    </div>
-                  ` : ''}
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : `
-          <div class="cal-day-inspector" style="text-align:center; padding:3rem 1rem; color:var(--text-tertiary);">
-            В этот день в Порто-Инверно не зафиксировано боевых операций синдиката.
-          </div>
-        `}
-      `;
-
-      // Attach Click handlers to calendar cells
-      container.querySelectorAll('.cal-cell.has-events').forEach(cell => {
-        cell.addEventListener('click', () => {
-          const dt = cell.getAttribute('data-date');
-          if (dt) {
-            AppState.selectedCalendarDate = dt;
-            Grids.renderCalendar();
-          }
-        });
-      });
-
-      // Attach Click handlers to preset buttons
-      container.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const dt = btn.getAttribute('data-date');
-          if (dt) {
-            AppState.selectedCalendarDate = dt;
-            Grids.renderCalendar();
-          }
-        });
-      });
-
-      // Attach Chapter Read buttons
-      container.querySelectorAll('.btn-cal-read').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const chapId = btn.getAttribute('data-chapter-id');
-          const sumIdx = (DataStore.summaries || []).findIndex(s => s.id === chapId);
-          if (sumIdx !== -1) {
-            UnifiedReader.open('chapter', sumIdx, true);
-          } else {
-            Navigation.switchTab('games', true);
-          }
-        });
-      });
-
-      DOM.calendarContainer.appendChild(container);
-    }
   };
 
   // Unified Single Reader Engine
@@ -2934,22 +2468,6 @@
     setupSegmented(DOM.quotesCategoryControls, 'quotesCategory', Grids.renderQuotes);
     setupSegmented(DOM.allNotesAuthorControls, 'allNotesAuthor', Grids.renderAllNotes);
     setupSegmented(DOM.psychoCharControls, 'psychoChar', Grids.renderPsycho);
-    setupSegmented(DOM.calendarBranchControls, 'calendarBranch', Grids.renderCalendar);
-    setupSegmented(DOM.calendarThreatControls, 'calendarThreat', Grids.renderCalendar);
-
-    // Sanity Hero Controls
-    if (DOM.sanityHeroControls) {
-      DOM.sanityHeroControls.addEventListener('click', (e) => {
-        const btn = e.target.closest('.segment-btn');
-        if (!btn) return;
-        DOM.sanityHeroControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        AppState.sanityHero = btn.getAttribute('data-hero');
-        AppState.sanitySelectedPointIndex = 0;
-        Grids.renderSanity();
-      });
-    }
-
     // Relationship Pair Controls
     if (DOM.relationshipPairControls) {
       DOM.relationshipPairControls.addEventListener('click', (e) => {
@@ -3089,7 +2607,7 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'player-notes', 'characters', 'psycho', 'sanity', 'relationships', 'calendar'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'player-notes', 'characters', 'psycho', 'relationships'].includes(hash)) {
       if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
@@ -3104,9 +2622,7 @@
   if (DOM.charsCount) DOM.charsCount.textContent = DataStore.characters.length;
   if (DOM.psychoCount) DOM.psychoCount.textContent = (DataStore.psycho || []).length;
   if (DOM.allNotesCount) DOM.allNotesCount.textContent = AnnotationsService.getAllNotesFlat().length;
-  if (DOM.sanityCount) DOM.sanityCount.textContent = Object.keys(DataStore.sanityTimeline || {}).length || 4;
   if (DOM.relationshipsCount) DOM.relationshipsCount.textContent = Object.keys(DataStore.relationships || {}).length || 12;
-  if (DOM.calendarCount) DOM.calendarCount.textContent = Object.keys(DataStore.calendar.days || {}).length || 15;
   if (DOM.quotesCount) {
     const totalQuotesAll = (DataStore.quotes || []).reduce((sum, q) => sum + (q.totalQuotesCount || 0), 0);
     DOM.quotesCount.textContent = totalQuotesAll;
