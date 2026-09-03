@@ -850,8 +850,7 @@
         return;
       }
 
-      items.forEach(item => {
-        const idx = (DataStore.feedbacks || []).findIndex(f => f.id === item.id);
+      items.forEach((item, idx) => {
         Grids.renderCard(DOM.npcFeedbacksGrid, item, {
           metaTopLeft: '⏳ ' + item.readTime,
           badgeClass: 'tag-solo',
@@ -860,7 +859,7 @@
           thesis: item.excerpt,
           footerLeft: '📊 ' + item.wordCount + ' слов',
           actionText: 'Читать запись',
-          onClick: () => UnifiedReader.open('feedback', idx >= 0 ? idx : 0, true)
+          onClick: () => UnifiedReader.open('npc-feedback', idx, true)
         });
       });
     },
@@ -1334,7 +1333,7 @@
         totalCount = DataStore.transcripts.length;
         backTab = 'transcripts';
         backLabel = '← К стенограммам';
-      } else if (docType === 'feedback') {
+      } else if (docType === 'feedback' || docType === 'npc-feedback') {
         doc = DataStore.feedbacks[index];
         totalCount = DataStore.feedbacks.length;
         backTab = 'player-notes';
@@ -1344,6 +1343,11 @@
         totalCount = (DataStore.psycho || []).length;
         backTab = 'psycho';
         backLabel = '← К псих. архиву';
+      } else if (docType === 'npc-feedback') {
+        doc = (DataStore.npcFeedbacks || [])[index];
+        totalCount = (DataStore.npcFeedbacks || []).length;
+        backTab = 'npc-os';
+        backLabel = '← К папке «ОС NPC»';
       }
 
       if (!doc) return;
