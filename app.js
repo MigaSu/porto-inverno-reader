@@ -1333,7 +1333,7 @@
         totalCount = DataStore.transcripts.length;
         backTab = 'transcripts';
         backLabel = '← К стенограммам';
-      } else if (docType === 'feedback' || docType === 'npc-feedback') {
+      } else if (docType === 'feedback') {
         doc = DataStore.feedbacks[index];
         totalCount = DataStore.feedbacks.length;
         backTab = 'player-notes';
@@ -1419,7 +1419,7 @@
       let folder = 'summaries';
       let filename = doc.file;
       if (docType === 'transcript') folder = 'transcripts';
-      else if (docType === 'feedback') folder = 'feedbacks';
+      else if (docType === 'feedback' || docType === 'npc-feedback') folder = 'feedbacks';
       else if (docType === 'psycho') folder = 'psycho';
 
       fetch('./' + folder + '/' + encodeURIComponent(filename))
@@ -1442,7 +1442,7 @@
         DOM.readerBody.innerHTML = Utils.parseMarkdown(text);
       } else if (docType === 'transcript') {
         DOM.readerBody.innerHTML = Utils.formatTranscript(text, AppState.transcriptQuery);
-      } else if (docType === 'feedback') {
+      } else if (docType === 'feedback' || docType === 'npc-feedback') {
         const paragraphs = text.split(/\r?\n\s*\r?\n/).filter(Boolean);
         let bodyHtml = '';
         paragraphs.forEach(p => {
@@ -2572,6 +2572,7 @@
       if (type === 'chapter' && DataStore.summaries[idx]) text = DataStore.summaries[idx].content;
       else if (type === 'transcript' && DataStore.transcripts[idx]) text = DataStore.transcripts[idx].rawText;
       else if (type === 'feedback' && DataStore.feedbacks[idx]) text = DataStore.feedbacks[idx].content;
+      else if (type === 'npc-feedback' && DataStore.npcFeedbacks[idx]) text = DataStore.npcFeedbacks[idx].content;
       else if (type === 'psycho' && DataStore.psycho[idx]) text = DataStore.psycho[idx].content;
 
       if (text) {
@@ -2811,7 +2812,7 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'player-notes', 'characters', 'psycho', 'relationships'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'player-notes', 'characters', 'psycho', 'relationships', 'npc-os'].includes(hash)) {
       if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
