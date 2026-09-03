@@ -6,7 +6,7 @@
   'use strict';
 
   // Master Data Store
-  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], quotes: [], psycho: [], relationships: {} };
+  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], npcFeedbacks: [], quotes: [], psycho: [], relationships: {} };
 
   // Application State
   const AppState = {
@@ -24,6 +24,7 @@
       allNotesAuthor: 'all'
     },
     isAdmin: localStorage.getItem('porto_admin_mode') === 'true',
+    isNpcOsUnlocked: localStorage.getItem('porto_npc_os_unlocked') === 'true',
     selectedRelationshipPair: 'molly-heather',
     selectedRelationshipStageIndex: 0,
     quotesSelectedSession: null,
@@ -56,6 +57,24 @@
     gamesCount: document.getElementById('gamesCount'),
     transcriptsCount: document.getElementById('transcriptsCount'),
     feedbacksCount: document.getElementById('feedbacksCount'),
+    navNpcOs: document.getElementById('navNpcOs'),
+    npcOsIcon: document.getElementById('npcOsIcon'),
+    npcOsBadge: document.getElementById('npcOsBadge'),
+    npcHeaderLockBadge: document.getElementById('npcHeaderLockBadge'),
+    btnRelockNpcOs: document.getElementById('btnRelockNpcOs'),
+    npcOsLockedPlaceholder: document.getElementById('npcOsLockedPlaceholder'),
+    btnOpenNpcAuthModal: document.getElementById('btnOpenNpcAuthModal'),
+    npcOsContentWrap: document.getElementById('npcOsContentWrap'),
+    npcFeedbacksGrid: document.getElementById('npcFeedbacksGrid'),
+    btnNpcOsFilter: document.getElementById('btnNpcOsFilter'),
+    // NPC Auth Modal
+    npcAuthModal: document.getElementById('npcAuthModal'),
+    btnCloseNpcAuthModal: document.getElementById('btnCloseNpcAuthModal'),
+    btnCancelNpcAuth: document.getElementById('btnCancelNpcAuth'),
+    btnSubmitNpcAuth: document.getElementById('btnSubmitNpcAuth'),
+    npcAuthForm: document.getElementById('npcAuthForm'),
+    npcPassInput: document.getElementById('npcPassInput'),
+    npcAuthError: document.getElementById('npcAuthError'),
     charsCount: document.getElementById('charsCount'),
     quotesCount: document.getElementById('quotesCount'),
     allNotesCount: document.getElementById('allNotesCount'),
@@ -457,6 +476,7 @@
           else if (tabKey === 'psycho') Grids.renderPsycho();
           else if (tabKey === 'relationships') Grids.renderRelationships();
           else if (tabKey === 'player-notes') Grids.renderFeedbacks();
+          else if (tabKey === 'npc-os') Grids.renderNpcOs();
           else if (tabKey === 'all-notes') Grids.renderAllNotes();
           else if (tabKey === 'characters') Grids.renderCharacters();
         } catch (err) {
@@ -802,6 +822,45 @@
           footerLeft: '📊 ' + item.wordCount + ' слов',
           actionText: 'Читать запись',
           onClick: () => UnifiedReader.open('feedback', idx, true)
+        });
+      });
+    },
+
+    renderNpcOs() {
+      NpcAuth.updateUiState();
+      if (!AppState.isNpcOsUnlocked) return;
+      if (!DOM.npcFeedbacksGrid) return;
+
+      DOM.npcFeedbacksGrid.innerHTML = '';
+      const items = DataStore.npcFeedbacks || [];
+
+      if (items.length === 0) {
+        DOM.npcFeedbacksGrid.innerHTML = `
+          <div style="grid-column: 1 / -1; padding: 4rem 1.5rem; text-align: center; background: rgba(255, 255, 255, 0.02); border: 1px dashed rgba(212, 175, 55, 0.3); border-radius: 12px; margin: 1rem auto; max-width: 600px;">
+            <div style="font-size: 2.5rem; margin-bottom: 1rem;">🗂️</div>
+            <h3 style="color: #f4ece1; font-size: 1.25rem; margin-bottom: 0.5rem; font-family: 'Cinzel', serif;">Папка пуста. Пока что.</h3>
+            <p style="color: var(--text-tertiary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem;">
+              Секретный сектор архива активирован. Журналы, донесения и личные мысли неигровых персонажей (Крауч, Джек Риган, Ковальски и др.) будут расшифровываться и публиковаться по мере развития расследования.
+            </p>
+            <div style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; background: rgba(46, 196, 182, 0.15); border: 1px solid rgba(46, 196, 182, 0.4); color: #2ec4b6; font-weight: 600; letter-spacing: 0.5px;">
+              ✓ ДОСТУП АВТОРИЗОВАН (КОД 226180)
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      items.forEach(item => {
+        const idx = (DataStore.feedbacks || []).findIndex(f => f.id === item.id);
+        Grids.renderCard(DOM.npcFeedbacksGrid, item, {
+          metaTopLeft: '⏳ ' + item.readTime,
+          badgeClass: 'tag-solo',
+          badgeText: item.characterName,
+          title: item.title,
+          thesis: item.excerpt,
+          footerLeft: '📊 ' + item.wordCount + ' слов',
+          actionText: 'Читать запись',
+          onClick: () => UnifiedReader.open('feedback', idx >= 0 ? idx : 0, true)
         });
       });
     },
@@ -2195,6 +2254,133 @@
     }
   };
 
+  // NpcAuth Module: Password protection for ОС NPC (Code: 226180)
+  const NpcAuth = {
+    init() {
+      this.updateUiState();
+
+      if (DOM.btnOpenNpcAuthModal) {
+        DOM.btnOpenNpcAuthModal.addEventListener('click', () => this.openModal());
+      }
+      if (DOM.btnCloseNpcAuthModal) {
+        DOM.btnCloseNpcAuthModal.addEventListener('click', () => this.closeModal());
+      }
+      if (DOM.btnCancelNpcAuth) {
+        DOM.btnCancelNpcAuth.addEventListener('click', () => this.closeModal());
+      }
+      if (DOM.npcAuthModal) {
+        DOM.npcAuthModal.addEventListener('click', (e) => {
+          if (e.target === DOM.npcAuthModal) this.closeModal();
+        });
+      }
+      if (DOM.npcAuthForm) {
+        DOM.npcAuthForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.submitPassword();
+        });
+      }
+      if (DOM.btnRelockNpcOs) {
+        DOM.btnRelockNpcOs.addEventListener('click', () => this.relock());
+      }
+      if (DOM.navNpcOs) {
+        DOM.navNpcOs.addEventListener('click', (e) => {
+          if (!AppState.isNpcOsUnlocked) {
+            e.preventDefault();
+            this.openModal();
+          }
+        });
+      }
+      if (DOM.btnNpcOsFilter) {
+        DOM.btnNpcOsFilter.addEventListener('click', (e) => {
+          e.preventDefault();
+          Navigation.switchTab('npc-os');
+          if (!AppState.isNpcOsUnlocked) {
+            this.openModal();
+          }
+        });
+      }
+    },
+
+    openModal() {
+      if (DOM.npcAuthModal) {
+        DOM.npcAuthModal.style.display = 'flex';
+        if (DOM.npcPassInput) {
+          DOM.npcPassInput.value = '';
+          DOM.npcPassInput.style.borderColor = 'rgba(212, 175, 55, 0.4)';
+          setTimeout(() => DOM.npcPassInput.focus(), 50);
+        }
+        if (DOM.npcAuthError) {
+          DOM.npcAuthError.style.display = 'none';
+        }
+      }
+    },
+
+    closeModal() {
+      if (DOM.npcAuthModal) DOM.npcAuthModal.style.display = 'none';
+    },
+
+    submitPassword() {
+      const val = (DOM.npcPassInput ? DOM.npcPassInput.value : '').trim();
+      if (val === '226180') {
+        AppState.isNpcOsUnlocked = true;
+        localStorage.setItem('porto_npc_os_unlocked', 'true');
+        this.closeModal();
+        this.updateUiState();
+        Utils.showToast('🔓 Доступ к секретной папке «ОС NPC» разрешён!');
+        if (AppState.activeTab !== 'npc-os') {
+          Navigation.switchTab('npc-os');
+        } else {
+          Grids.renderNpcOs();
+        }
+      } else {
+        if (DOM.npcAuthError) {
+          DOM.npcAuthError.textContent = '⛔ Неверный код допуска. Доступ запрещен.';
+          DOM.npcAuthError.style.display = 'block';
+        }
+        if (DOM.npcPassInput) {
+          DOM.npcPassInput.style.borderColor = '#ff4d4d';
+          DOM.npcPassInput.select();
+        }
+      }
+    },
+
+    relock() {
+      AppState.isNpcOsUnlocked = false;
+      localStorage.removeItem('porto_npc_os_unlocked');
+      this.updateUiState();
+      Utils.showToast('🔒 Папка «ОС NPC» заблокирована');
+      if (AppState.activeTab === 'npc-os') {
+        Grids.renderNpcOs();
+      }
+    },
+
+    updateUiState() {
+      const unlocked = AppState.isNpcOsUnlocked;
+      const count = (DataStore.npcFeedbacks || []).length;
+      
+      if (DOM.npcOsIcon) DOM.npcOsIcon.textContent = unlocked ? '📂' : '🔒';
+      if (DOM.npcOsBadge) {
+        DOM.npcOsBadge.textContent = unlocked ? String(count) : 'LOCK';
+        DOM.npcOsBadge.style.background = unlocked ? 'rgba(46, 196, 182, 0.3)' : 'rgba(193, 18, 31, 0.4)';
+        DOM.npcOsBadge.style.borderColor = unlocked ? 'rgba(46, 196, 182, 0.5)' : 'rgba(212, 175, 55, 0.4)';
+      }
+      if (DOM.npcHeaderLockBadge) {
+        DOM.npcHeaderLockBadge.textContent = unlocked ? '🔓 ДОСТУП РАЗРЕШЕН' : '🔒 ЗАСЕКРЕЧЕНО';
+        DOM.npcHeaderLockBadge.style.color = unlocked ? '#2ec4b6' : '#d4af37';
+        DOM.npcHeaderLockBadge.style.borderColor = unlocked ? 'rgba(46, 196, 182, 0.4)' : 'rgba(212, 175, 55, 0.4)';
+      }
+      if (DOM.btnRelockNpcOs) {
+        DOM.btnRelockNpcOs.style.display = unlocked ? 'inline-block' : 'none';
+      }
+      if (DOM.npcOsLockedPlaceholder) {
+        DOM.npcOsLockedPlaceholder.style.display = unlocked ? 'none' : 'block';
+      }
+      if (DOM.npcOsContentWrap) {
+        DOM.npcOsContentWrap.style.display = unlocked ? 'block' : 'none';
+      }
+    }
+  };
+
   // Character Dossier Modal
   const CharactersModal = {
     open(char, push = true) {
@@ -2293,6 +2479,17 @@
       DOM.appSearch.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           const val = DOM.appSearch.value.trim();
+          if (val === '226180') {
+            e.preventDefault();
+            AppState.isNpcOsUnlocked = true;
+            localStorage.setItem('porto_npc_os_unlocked', 'true');
+            DOM.appSearch.value = '';
+            AppState.searchQuery = '';
+            NpcAuth.updateUiState();
+            Utils.showToast('🔓 Папка «ОС NPC» разблокирована кодом допуска');
+            Navigation.switchTab('npc-os');
+            return;
+          }
           if (val === '22618') {
             e.preventDefault();
             AppState.isAdmin = !AppState.isAdmin;
@@ -2530,6 +2727,9 @@
         }
       });
     }
+
+    // NPC OS Auth init
+    NpcAuth.init();
 
     // Modal
     DOM.modalClose.addEventListener('click', () => CharactersModal.close(true));
