@@ -889,8 +889,13 @@ html, body {
 }
 
 .doc-content strong {
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
+  color: inherit;
+}
+
+.doc-content b {
+  font-weight: 700;
+  color: inherit;
 }
 
 .doc-content blockquote {
@@ -3506,6 +3511,19 @@ html, body {
   font-family: 'Times New Roman', serif;
 }
 
+.vintage-doc-wrap strong:not([style*="color"]),
+.vintage-doc-wrap b:not([style*="color"]) {
+  color: #000000 !important;
+  font-weight: 700;
+}
+
+.vintage-doc-wrap p,
+.vintage-doc-wrap td:not([style*="color"]),
+.vintage-doc-wrap th:not([style*="color"]),
+.vintage-doc-wrap li:not([style*="color"]) {
+  color: #1a1a1a;
+}
+
 .noir-letter-wrap {
   font-family: 'Georgia', 'Times New Roman', serif;
   font-size: 14.5px;
@@ -3519,6 +3537,83 @@ html, body {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
   margin: 10px 0;
 }
+
+.noir-letter-wrap strong:not([style*="color"]),
+.noir-letter-wrap b:not([style*="color"]) {
+  color: #fdfaf4 !important;
+  font-weight: 700;
+}
+
+.noir-letter-wrap p,
+.noir-letter-wrap li:not([style*="color"]) {
+  color: #e3dac9;
+}
+
+/* ==========================================================================
+   HANDOUT SHEETS CONTRAST & TYPOGRAPHY ENHANCEMENTS
+   Guarantee 100% readable, high-contrast text across all color schemes
+   ========================================================================== */
+
+/* Handout Light Sheets (Invoices, Accounting, Archive, Acts, Regulations) */
+.handout-sheet-wrapper.handout-sheet-light,
+#readerBody.handout-light,
+.handout-sheet-light {
+  color: #1a1a1a;
+}
+
+.handout-sheet-wrapper.handout-sheet-light strong:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-light b:not([style*="color"]),
+#readerBody.handout-light strong:not([style*="color"]),
+#readerBody.handout-light b:not([style*="color"]),
+.reader-doc [style*="#f4f1ea"] strong:not([style*="color"]),
+.reader-doc [style*="#fdfbf7"] strong:not([style*="color"]),
+.reader-doc [style*="#fcf9f2"] strong:not([style*="color"]),
+.reader-doc [style*="#d1cbc0"] strong:not([style*="color"]),
+.reader-doc [style*="#e8e3d7"] strong:not([style*="color"]),
+.reader-doc [style*="#f4ecd8"] strong:not([style*="color"]),
+.reader-doc [style*="#e8e2d5"] strong:not([style*="color"]),
+.reader-doc [style*="#dfd8c8"] strong:not([style*="color"]),
+.reader-doc [style*="#f2efe9"] strong:not([style*="color"]),
+.reader-doc [style*="#f2eee3"] strong:not([style*="color"]) {
+  color: #000000 !important;
+  font-weight: 700;
+}
+
+.handout-sheet-wrapper.handout-sheet-light table,
+.handout-sheet-wrapper.handout-sheet-light td:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-light th:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-light ul,
+.handout-sheet-wrapper.handout-sheet-light ol,
+.handout-sheet-wrapper.handout-sheet-light li:not([style*="color"]),
+#readerBody.handout-light td:not([style*="color"]),
+#readerBody.handout-light th:not([style*="color"]),
+#readerBody.handout-light li:not([style*="color"]) {
+  color: #1a1a1a;
+}
+
+/* Ensure headings on light sheets remain deep black */
+.handout-sheet-wrapper.handout-sheet-light h1:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-light h2:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-light h3:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-light h4:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-light h5:not([style*="color"]),
+#readerBody.handout-light h1:not([style*="color"]),
+#readerBody.handout-light h2:not([style*="color"]),
+#readerBody.handout-light h3:not([style*="color"]),
+#readerBody.handout-light h4:not([style*="color"]),
+#readerBody.handout-light h5:not([style*="color"]) {
+  color: #111111;
+}
+
+/* Handout Dark Sheets (Police case files, mayor office confidential memo, noir letters) */
+.handout-sheet-wrapper.handout-sheet-dark strong:not([style*="color"]),
+.handout-sheet-wrapper.handout-sheet-dark b:not([style*="color"]),
+#readerBody.handout-dark strong:not([style*="color"]),
+#readerBody.handout-dark b:not([style*="color"]) {
+  color: #fdfaf4 !important;
+  font-weight: 700;
+}
+
 
 
   </style>
@@ -5657,6 +5752,10 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
     },
 
     loadContent(docType, doc, index) {
+      if (DOM.readerBody && docType !== 'handout') {
+        DOM.readerBody.classList.remove('handout-mode', 'handout-light', 'handout-dark');
+      }
+
       if (docType === 'handout') {
         this.renderHandoutContent(doc);
         return;
@@ -5758,7 +5857,22 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
         }
       }
 
-      DOM.readerBody.innerHTML = html;
+      // Robust dark vs light document sheet detection
+      const isDark = html.includes('#121212') || 
+                     html.includes('#1a1917') || 
+                     html.includes('rgb(25, 25, 25)') || 
+                     html.includes('rgb(25,25,25)') ||
+                     html.includes('noir-letter-wrap') ||
+                     html.includes('heather-letter') ||
+                     html.includes('porto-inverno-letter');
+
+      if (DOM.readerBody) {
+        DOM.readerBody.classList.remove('handout-light', 'handout-dark');
+        DOM.readerBody.classList.add('handout-mode', isDark ? 'handout-dark' : 'handout-light');
+      }
+
+      const wrapperClass = isDark ? 'handout-sheet-dark' : 'handout-sheet-light';
+      DOM.readerBody.innerHTML = `<div class="handout-sheet-wrapper ${wrapperClass}">${html}</div>`;
       setTimeout(() => {
         NotesUI.renderDocHighlights();
       }, 70);

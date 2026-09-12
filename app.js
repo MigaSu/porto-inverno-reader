@@ -1478,6 +1478,10 @@
     },
 
     loadContent(docType, doc, index) {
+      if (DOM.readerBody && docType !== 'handout') {
+        DOM.readerBody.classList.remove('handout-mode', 'handout-light', 'handout-dark');
+      }
+
       if (docType === 'handout') {
         this.renderHandoutContent(doc);
         return;
@@ -1579,7 +1583,22 @@
         }
       }
 
-      DOM.readerBody.innerHTML = html;
+      // Robust dark vs light document sheet detection
+      const isDark = html.includes('#121212') || 
+                     html.includes('#1a1917') || 
+                     html.includes('rgb(25, 25, 25)') || 
+                     html.includes('rgb(25,25,25)') ||
+                     html.includes('noir-letter-wrap') ||
+                     html.includes('heather-letter') ||
+                     html.includes('porto-inverno-letter');
+
+      if (DOM.readerBody) {
+        DOM.readerBody.classList.remove('handout-light', 'handout-dark');
+        DOM.readerBody.classList.add('handout-mode', isDark ? 'handout-dark' : 'handout-light');
+      }
+
+      const wrapperClass = isDark ? 'handout-sheet-dark' : 'handout-sheet-light';
+      DOM.readerBody.innerHTML = `<div class="handout-sheet-wrapper ${wrapperClass}">${html}</div>`;
       setTimeout(() => {
         NotesUI.renderDocHighlights();
       }, 70);
