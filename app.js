@@ -476,6 +476,7 @@
           else if (tabKey === 'npc-os') Grids.renderNpcOs();
           else if (tabKey === 'all-notes') Grids.renderAllNotes();
           else if (tabKey === 'characters') Grids.renderCharacters();
+          else if (tabKey === 'dice') DiceRoller.render();
         } catch (err) {
           console.error(`Error rendering tab ${tabKey}:`, err);
         }
@@ -2277,12 +2278,677 @@
 
     close(pop = true) {
       if (DOM.charModal) DOM.charModal.style.display = 'none';
+      if (DOM.charModal) DOM.charModal.style.display = 'none';
       if (pop && window.location.hash.startsWith('#char:')) {
         if (window.history.length > 1) {
           window.history.back();
         } else {
           window.location.hash = '#' + AppState.activeTab;
         }
+      }
+    }
+  };
+
+  // =========================================================================
+  // SWADE DICE ROLLER CONTROLLER (FOUNDRY VTT INTEGRATION)
+  // =========================================================================
+  const DiceRoller = {
+    storageKey: 'porto_dice_history_v1',
+    state: {
+      mode: 'trait', // 'trait' | 'damage'
+      traitDie: 8, // 4, 6, 8, 10, 12
+      wildCard: true,
+      modifier: 0,
+      targetNumber: 4, // TN for trait, or Toughness for damage
+      damageDice: [6, 6], // default 2d6
+      lastRoll: null,
+      history: []
+    },
+
+    init() {
+      // Load history from localStorage
+      try {
+        const saved = localStorage.getItem(this.storageKey);
+        if (saved) this.state.history = JSON.parse(saved) || [];
+      } catch (e) {
+        this.state.history = [];
+      }
+
+      this.bindEvents();
+      this.updateFormulaPreview();
+    },
+
+    bindEvents() {
+      // Mode Switcher
+      const modeControls = document.getElementById('diceModeControls');
+      if (modeControls) {
+        modeControls.addEventListener('click', (e) => {
+          const btn = e.target.closest('.segment-btn');
+          if (!btn) return;
+          modeControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const mode = btn.getAttribute('data-mode');
+          this.setMode(mode);
+        });
+      }
+
+      // Trait Die Selector (d4, d6, d8, d10, d12)
+      const traitGrid = document.querySelector('.dice-selector-grid');
+      if (traitGrid) {
+        traitGrid.addEventListener('click', (e) => {
+          const btn = e.target.closest('.die-btn');
+          if (!btn) return;
+          traitGrid.querySelectorAll('.die-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          this.state.traitDie = parseInt(btn.getAttribute('data-die'), 10) || 8;
+          this.updateFormulaPreview();
+        });
+      }
+
+      // Wild Card Toggle
+      const wildToggle = document.getElementById('diceWildCardToggle');
+      if (wildToggle) {
+        wildToggle.addEventListener('change', (e) => {
+          this.state.wildCard = e.target.checked;
+          this.updateFormulaPreview();
+        });
+      }
+
+      // Damage Add Buttons (+d4, +d6, ...)
+      const dmgPicker = document.querySelector('.damage-dice-picker');
+      if (dmgPicker) {
+        dmgPicker.addEventListener('click', (e) => {
+          const btn = e.target.closest('.dmg-add-btn');
+          if (!btn) return;
+          const sides = parseInt(btn.getAttribute('data-add'), 10) || 6;
+          if (this.state.damageDice.length < 8) {
+            this.state.damageDice.push(sides);
+            this.renderDamagePool();
+            this.updateFormulaPreview();
+          } else {
+            Utils.showToast('Максимум 8 кубиков в пуле урона');
+          }
+        });
+      }
+
+      // Damage Clear Button
+      const dmgClear = document.getElementById('damagePoolClear');
+      if (dmgClear) {
+        dmgClear.addEventListener('click', () => {
+          this.state.damageDice = [];
+          this.renderDamagePool();
+          this.updateFormulaPreview();
+        });
+      }
+
+      // Damage Presets
+      const dmgPresets = document.querySelector('.damage-presets-row');
+      if (dmgPresets) {
+        dmgPresets.addEventListener('click', (e) => {
+          const btn = e.target.closest('.dmg-preset-btn');
+          if (!btn) return;
+          const preset = btn.getAttribute('data-preset');
+          this.applyDamagePreset(preset);
+        });
+      }
+
+      // TN Chips & Custom Input
+      const tnChips = document.getElementById('diceTnChips');
+      const tnInput = document.getElementById('diceTnInput');
+      if (tnChips) {
+        tnChips.addEventListener('click', (e) => {
+          const btn = e.target.closest('.dice-chip');
+          if (!btn) return;
+          tnChips.querySelectorAll('.dice-chip').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const val = parseInt(btn.getAttribute('data-tn'), 10) || 4;
+          this.state.targetNumber = val;
+          if (tnInput) tnInput.value = val;
+        });
+      }
+      if (tnInput) {
+        tnInput.addEventListener('input', (e) => {
+          const val = parseInt(e.target.value, 10) || 4;
+          this.state.targetNumber = Math.max(1, val);
+          if (tnChips) {
+            tnChips.querySelectorAll('.dice-chip').forEach(b => {
+              b.classList.toggle('active', parseInt(b.getAttribute('data-tn'), 10) === val);
+            });
+          }
+        });
+      }
+
+      // Modifier Chips & Custom Input
+      const modChips = document.getElementById('diceModChips');
+      const modInput = document.getElementById('diceModInput');
+      if (modChips) {
+        modChips.addEventListener('click', (e) => {
+          const btn = e.target.closest('.dice-chip');
+          if (!btn) return;
+          modChips.querySelectorAll('.dice-chip').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const val = parseInt(btn.getAttribute('data-mod'), 10) || 0;
+          this.state.modifier = val;
+          if (modInput) modInput.value = val;
+          this.updateFormulaPreview();
+        });
+      }
+      if (modInput) {
+        modInput.addEventListener('input', (e) => {
+          const val = parseInt(e.target.value, 10) || 0;
+          this.state.modifier = val;
+          if (modChips) {
+            modChips.querySelectorAll('.dice-chip').forEach(b => {
+              b.classList.toggle('active', parseInt(b.getAttribute('data-mod'), 10) === val);
+            });
+          }
+          this.updateFormulaPreview();
+        });
+      }
+
+      // Execute Roll Button
+      const rollBtn = document.getElementById('btnExecuteRoll');
+      if (rollBtn) {
+        rollBtn.addEventListener('click', () => this.executeRoll(false));
+      }
+
+      // Benny Reroll Button
+      const bennyBtn = document.getElementById('btnExecuteBenny');
+      if (bennyBtn) {
+        bennyBtn.addEventListener('click', () => this.executeRoll(true));
+      }
+
+      // Clear History Button
+      const clearHistBtn = document.getElementById('btnClearDiceHistory');
+      if (clearHistBtn) {
+        clearHistBtn.addEventListener('click', () => {
+          this.state.history = [];
+          try { localStorage.removeItem(this.storageKey); } catch (e) {}
+          this.renderHistory();
+          Utils.showToast('История бросков очищена');
+        });
+      }
+
+      // Spacebar to roll when dice tab is active
+      window.addEventListener('keydown', (e) => {
+        if (AppState.activeTab === 'dice') {
+          if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            this.executeRoll(false);
+          }
+        }
+      });
+    },
+
+    setMode(mode) {
+      this.state.mode = mode;
+      const traitSec = document.getElementById('diceTraitSection');
+      const dmgSec = document.getElementById('diceDamageSection');
+      const targetLabel = document.getElementById('diceTargetLabel');
+      const tnInput = document.getElementById('diceTnInput');
+
+      if (mode === 'damage') {
+        if (traitSec) traitSec.style.display = 'none';
+        if (dmgSec) dmgSec.style.display = 'block';
+        if (targetLabel) targetLabel.textContent = 'Стойкость цели (Toughness):';
+        if (tnInput && tnInput.value === '4') tnInput.value = '6';
+        this.state.targetNumber = 6;
+        this.renderDamagePool();
+      } else {
+        if (traitSec) traitSec.style.display = 'block';
+        if (dmgSec) dmgSec.style.display = 'none';
+        if (targetLabel) targetLabel.textContent = 'Сложность (TN):';
+        if (tnInput && tnInput.value === '6') tnInput.value = '4';
+        this.state.targetNumber = 4;
+      }
+      this.updateFormulaPreview();
+    },
+
+    applyDamagePreset(preset) {
+      if (preset === '2d6') {
+        this.state.damageDice = [6, 6];
+        this.state.modifier = 0;
+      } else if (preset === '2d6,1') {
+        this.state.damageDice = [6, 6];
+        this.state.modifier = 1;
+        const modInput = document.getElementById('diceModInput');
+        if (modInput) modInput.value = 1;
+      } else if (preset === '2d8') {
+        this.state.damageDice = [8, 8];
+        this.state.modifier = 0;
+      } else if (preset === '1d8,1d6') {
+        this.state.damageDice = [8, 6];
+        this.state.modifier = 0;
+      } else if (preset === '3d6') {
+        this.state.damageDice = [6, 6, 6];
+        this.state.modifier = 0;
+      }
+      this.renderDamagePool();
+      this.updateFormulaPreview();
+    },
+
+    renderDamagePool() {
+      const tagsContainer = document.getElementById('damagePoolTags');
+      if (!tagsContainer) return;
+      if (this.state.damageDice.length === 0) {
+        tagsContainer.innerHTML = '<span style="color:var(--text-tertiary); font-size:0.8rem;">Пул пуст (кликните кнопки выше)</span>';
+        return;
+      }
+      tagsContainer.innerHTML = this.state.damageDice.map((d, idx) => `
+        <span class="damage-tag">
+          d${d}
+          <span class="damage-tag-remove" data-idx="${idx}" title="Удалить">✕</span>
+        </span>
+      `).join('');
+
+      tagsContainer.querySelectorAll('.damage-tag-remove').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const removeIdx = parseInt(el.getAttribute('data-idx'), 10);
+          this.state.damageDice.splice(removeIdx, 1);
+          this.renderDamagePool();
+          this.updateFormulaPreview();
+        });
+      });
+    },
+
+    updateFormulaPreview() {
+      const hint = document.getElementById('diceFormulaHint');
+      const preview = document.getElementById('diceFormulaPreview');
+      const cmd = this.getFoundryCommand();
+
+      if (hint) hint.textContent = cmd;
+      if (preview) preview.innerHTML = `Команда Foundry: <code>${Utils.escapeHtml(cmd)}</code>`;
+    },
+
+    getFoundryCommand() {
+      const mod = this.state.modifier;
+      let modStr = '';
+      if (mod > 0) modStr = ` + ${mod}`;
+      else if (mod < 0) modStr = ` - ${Math.abs(mod)}`;
+
+      if (this.state.mode === 'trait') {
+        if (this.state.wildCard) {
+          return `/r {1d${this.state.traitDie}x, 1d6x}kh${modStr}`;
+        } else {
+          return `/r 1d${this.state.traitDie}x${modStr}`;
+        }
+      } else {
+        if (this.state.damageDice.length === 0) return `/r 0${modStr}`;
+        // Group dice by sides
+        const counts = {};
+        this.state.damageDice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+        const parts = Object.keys(counts).map(d => `${counts[d]}d${d}x`);
+        return `/r ${parts.join(' + ')}${modStr}`;
+      }
+    },
+
+    rollExplodingDie(sides) {
+      const rolls = [];
+      let total = 0;
+      let val;
+      do {
+        val = Math.floor(Math.random() * sides) + 1;
+        rolls.push(val);
+        total += val;
+      } while (val === sides);
+      return { sides, rolls, total, aced: rolls.length > 1 };
+    },
+
+    executeRoll(isBenny = false) {
+      // Trigger tactile animation
+      const rollBtn = document.getElementById('btnExecuteRoll');
+      if (rollBtn) {
+        rollBtn.classList.add('die-rolling');
+        setTimeout(() => rollBtn.classList.remove('die-rolling'), 360);
+      }
+
+      const timestamp = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      let rollData = null;
+
+      if (this.state.mode === 'trait') {
+        const traitRoll = this.rollExplodingDie(this.state.traitDie);
+        let wildRoll = null;
+        if (this.state.wildCard) {
+          wildRoll = this.rollExplodingDie(6);
+        }
+
+        // Check Critical Failure: Snake eyes (initial rolls are both 1)
+        const isCritical = this.state.wildCard && traitRoll.rolls[0] === 1 && wildRoll.rolls[0] === 1;
+
+        let chosenTotal = 0;
+        let winner = 'trait';
+
+        if (isCritical) {
+          chosenTotal = 1;
+          winner = 'none';
+        } else if (!this.state.wildCard) {
+          chosenTotal = traitRoll.total;
+          winner = 'trait';
+        } else if (traitRoll.total >= wildRoll.total) {
+          chosenTotal = traitRoll.total;
+          winner = 'trait';
+        } else {
+          chosenTotal = wildRoll.total;
+          winner = 'wild';
+        }
+
+        const finalTotal = isCritical ? 1 : (chosenTotal + this.state.modifier);
+        const tn = this.state.targetNumber;
+        const margin = finalTotal - tn;
+
+        let verdict = '';
+        let badgeType = '';
+        let raises = 0;
+
+        if (isCritical) {
+          verdict = '💀 КРИТИЧЕСКИЙ ПРОВАЛ (SNAKE EYES)';
+          badgeType = 'critical';
+        } else if (finalTotal < tn) {
+          verdict = `❌ ПРОВАЛ (недобор ${Math.abs(margin)})`;
+          badgeType = 'failure';
+        } else {
+          raises = Math.floor(margin / 4);
+          if (raises === 0) {
+            verdict = '✅ УСПЕХ';
+            badgeType = 'success';
+          } else if (raises === 1) {
+            verdict = '✨ УСПЕХ С 1 ПОДЪЁМОМ!';
+            badgeType = 'raise';
+          } else {
+            verdict = `🔥 УСПЕХ С ${raises} ПОДЪЁМАМИ!`;
+            badgeType = 'raise-epic';
+          }
+        }
+
+        rollData = {
+          id: 'roll_' + Date.now(),
+          mode: 'trait',
+          isBenny,
+          timestamp,
+          formula: this.getFoundryCommand(),
+          traitDie: this.state.traitDie,
+          traitRoll,
+          wildCard: this.state.wildCard,
+          wildRoll,
+          winner,
+          modifier: this.state.modifier,
+          targetNumber: tn,
+          finalTotal,
+          isCritical,
+          raises,
+          verdict,
+          badgeType
+        };
+
+      } else {
+        // Damage Mode
+        if (this.state.damageDice.length === 0) {
+          Utils.showToast('Добавьте хотя бы один кубик урона');
+          return;
+        }
+
+        const diceRolls = this.state.damageDice.map(d => this.rollExplodingDie(d));
+        const diceSum = diceRolls.reduce((sum, r) => sum + r.total, 0);
+        const finalTotal = diceSum + this.state.modifier;
+        const toughness = this.state.targetNumber;
+        const margin = finalTotal - toughness;
+
+        let verdict = '';
+        let badgeType = '';
+        let raises = 0;
+
+        if (finalTotal < toughness) {
+          verdict = `❌ НЕ ПРОБИТО (Стойкость ${toughness})`;
+          badgeType = 'failure';
+        } else {
+          raises = Math.floor(margin / 4);
+          if (raises === 0) {
+            verdict = '⚡ ШОК (SHAKEN)';
+            badgeType = 'raise';
+          } else {
+            verdict = `💥 ШОК И ${raises} ${Utils.pluralize(raises, ['РАНЕНИЕ', 'РАНЕНИЯ', 'РАНЕНИЙ'])}!`;
+            badgeType = 'raise-epic';
+          }
+        }
+
+        rollData = {
+          id: 'roll_' + Date.now(),
+          mode: 'damage',
+          isBenny,
+          timestamp,
+          formula: this.getFoundryCommand(),
+          damageDice: this.state.damageDice,
+          diceRolls,
+          modifier: this.state.modifier,
+          targetNumber: toughness,
+          finalTotal,
+          raises,
+          verdict,
+          badgeType
+        };
+      }
+
+      this.state.lastRoll = rollData;
+      this.state.history.unshift(rollData);
+      if (this.state.history.length > 30) this.state.history.pop();
+
+      try {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.state.history));
+      } catch (e) {}
+
+      this.renderResult(rollData);
+      this.renderHistory();
+
+      // Show/hide Benny button
+      const bennyBtn = document.getElementById('btnExecuteBenny');
+      if (bennyBtn) {
+        if (rollData.isCritical) {
+          bennyBtn.style.display = 'none';
+        } else {
+          bennyBtn.style.display = 'flex';
+        }
+      }
+    },
+
+    renderResult(roll) {
+      const placeholder = document.getElementById('dicePlaceholder');
+      const container = document.getElementById('diceActiveResult');
+      if (!container) return;
+
+      if (placeholder) placeholder.style.display = 'none';
+      container.style.display = 'block';
+
+      if (roll.mode === 'trait') {
+        const t = roll.traitRoll;
+        const w = roll.wildRoll;
+        const mod = roll.modifier;
+
+        const winnerBase = roll.winner === 'trait' ? t.total : (roll.winner === 'wild' ? w.total : 1);
+
+        container.innerHTML = `
+          <div class="foundry-card">
+            <div class="foundry-card-header">
+              <span class="foundry-card-brand">
+                <span>🎲</span>
+                <span>FOUNDRY VTT • SWADE ROLL${roll.isBenny ? ' (ФИШКА / BENNY)' : ''}</span>
+              </span>
+              <span class="foundry-card-time">${roll.timestamp}</span>
+            </div>
+
+            <div class="foundry-card-body">
+              <div class="foundry-dice-grid">
+                <!-- Trait Die Box -->
+                <div class="foundry-die-box ${roll.winner === 'trait' ? 'winner' : (roll.winner === 'wild' ? 'loser' : '')}">
+                  ${roll.winner === 'trait' ? '<span class="die-winner-badge">★ ВЫБРАН</span>' : ''}
+                  <span class="die-box-tag">Кубик навыка (d${roll.traitDie})</span>
+                  <span class="die-box-total">${t.total}</span>
+                  <div class="die-box-steps">
+                    ${t.rolls.map((r) => `<span class="die-step-num ${r === roll.traitDie ? 'aced' : ''}">${r}${r === roll.traitDie ? '!' : ''}</span>`).join(' + ')}
+                  </div>
+                </div>
+
+                <!-- Wild Die Box -->
+                ${roll.wildCard ? `
+                  <div class="foundry-die-box ${roll.winner === 'wild' ? 'winner' : (roll.winner === 'trait' ? 'loser' : '')}">
+                    ${roll.winner === 'wild' ? '<span class="die-winner-badge">★ ВЫБРАН</span>' : ''}
+                    <span class="die-box-tag wild">Дикий кубик (d6)</span>
+                    <span class="die-box-total">${w.total}</span>
+                    <div class="die-box-steps">
+                      ${w.rolls.map((r) => `<span class="die-step-num ${r === 6 ? 'aced' : ''}">${r}${r === 6 ? '!' : ''}</span>`).join(' + ')}
+                    </div>
+                  </div>
+                ` : `
+                  <div class="foundry-die-box loser" style="justify-content:center; text-align:center;">
+                    <span class="die-box-tag">Дикий кубик</span>
+                    <span style="color:var(--text-tertiary); font-size:0.85rem;">Отключен (Экстра)</span>
+                  </div>
+                `}
+              </div>
+
+              <!-- Calculation Line -->
+              <div class="foundry-calc-line">
+                <span>База: <strong>${winnerBase}</strong></span>
+                ${mod !== 0 ? `<span>${mod > 0 ? '+' : '−'} Модификатор: <strong>${Math.abs(mod)}</strong></span>` : ''}
+                <span>= Итог: <strong>${roll.finalTotal}</strong></span>
+                <span>(против TN ${roll.targetNumber})</span>
+              </div>
+
+              <!-- Outcome Banner -->
+              <div class="foundry-outcome-banner ${roll.badgeType}">
+                <div class="outcome-title">${roll.verdict}</div>
+                <div class="outcome-desc">
+                  ${roll.isCritical 
+                    ? 'Оба кубика показали 1! Автоматический критический провал. Переброс за фишку невозможен!' 
+                    : `Итоговый результат: ${roll.finalTotal} при сложности ${roll.targetNumber}. ${roll.raises > 0 ? `Превышение на ${roll.finalTotal - roll.targetNumber} (+${roll.raises} ${Utils.pluralize(roll.raises, ['подъём', 'подъёма', 'подъёмов'])}).` : ''}`}
+                </div>
+              </div>
+
+              <!-- Actions Footer -->
+              <div class="foundry-card-actions">
+                <button type="button" class="btn-foundry-copy" id="btnCopyFoundryCmd">
+                  <span>📋</span>
+                  <span>Команда Foundry: <code>${Utils.escapeHtml(roll.formula)}</code></span>
+                </button>
+                <button type="button" class="btn-foundry-copy" id="btnCopyRollText">
+                  <span>💬</span>
+                  <span>Скопировать результат</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        // Damage Result Card
+        const mod = roll.modifier;
+        const rolls = roll.diceRolls;
+
+        container.innerHTML = `
+          <div class="foundry-card">
+            <div class="foundry-card-header">
+              <span class="foundry-card-brand">
+                <span>⚔️</span>
+                <span>FOUNDRY VTT • БРОСОК УРОНА (SWADE)</span>
+              </span>
+              <span class="foundry-card-time">${roll.timestamp}</span>
+            </div>
+
+            <div class="foundry-card-body">
+              <div class="foundry-dice-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+                ${rolls.map((r) => `
+                  <div class="foundry-die-box winner">
+                    <span class="die-box-tag">d${r.sides}</span>
+                    <span class="die-box-total" style="font-size:1.8rem;">${r.total}</span>
+                    <div class="die-box-steps">
+                      ${r.rolls.map(val => `<span class="die-step-num ${val === r.sides ? 'aced' : ''}">${val}${val === r.sides ? '!' : ''}</span>`).join('+')}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+
+              <div class="foundry-calc-line">
+                <span>Сумма кубиков: <strong>${rolls.reduce((s, r) => s + r.total, 0)}</strong></span>
+                ${mod !== 0 ? `<span>${mod > 0 ? '+' : '−'} Модификатор: <strong>${Math.abs(mod)}</strong></span>` : ''}
+                <span>= Урон: <strong>${roll.finalTotal}</strong></span>
+                <span>(Стойкость: ${roll.targetNumber})</span>
+              </div>
+
+              <div class="foundry-outcome-banner ${roll.badgeType}">
+                <div class="outcome-title">${roll.verdict}</div>
+                <div class="outcome-desc">
+                  Итоговый урон: ${roll.finalTotal} против Стойкости цели ${roll.targetNumber}.
+                </div>
+              </div>
+
+              <div class="foundry-card-actions">
+                <button type="button" class="btn-foundry-copy" id="btnCopyFoundryCmd">
+                  <span>📋</span>
+                  <span>Команда: <code>${Utils.escapeHtml(roll.formula)}</code></span>
+                </button>
+                <button type="button" class="btn-foundry-copy" id="btnCopyRollText">
+                  <span>💬</span>
+                  <span>Скопировать результат</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // Copy Handlers
+      const btnCmd = container.querySelector('#btnCopyFoundryCmd');
+      if (btnCmd) {
+        btnCmd.addEventListener('click', () => {
+          navigator.clipboard.writeText(roll.formula).then(() => {
+            Utils.showToast('✓ Скопирована команда для Foundry: ' + roll.formula);
+          });
+        });
+      }
+
+      const btnTxt = container.querySelector('#btnCopyRollText');
+      if (btnTxt) {
+        btnTxt.addEventListener('click', () => {
+          let text = '';
+          if (roll.mode === 'trait') {
+            text = `[SWADE] ${roll.formula} ➔ ${roll.finalTotal} vs TN ${roll.targetNumber} (${roll.verdict})`;
+          } else {
+            text = `[Урон SWADE] ${roll.formula} ➔ ${roll.finalTotal} vs Стойкость ${roll.targetNumber} (${roll.verdict})`;
+          }
+          navigator.clipboard.writeText(text).then(() => {
+            Utils.showToast('✓ Результат броска скопирован!');
+          });
+        });
+      }
+    },
+
+    renderHistory() {
+      const list = document.getElementById('diceHistoryList');
+      if (!list) return;
+
+      if (this.state.history.length === 0) {
+        list.innerHTML = '<div class="history-empty-note">История пока пуста. Сделайте первый бросок!</div>';
+        return;
+      }
+
+      list.innerHTML = this.state.history.map(item => `
+        <div class="history-item-row">
+          <div class="history-left">
+            <span class="history-time">${item.timestamp}</span>
+            <span class="history-formula">${Utils.escapeHtml(item.formula)}</span>
+          </div>
+          <div class="history-right">
+            <span class="history-total">${item.finalTotal}</span>
+            <span class="history-pill ${item.badgeType}">${item.verdict.split(' ')[0]} ${item.verdict.split(' ')[1] || ''}</span>
+          </div>
+        </div>
+      `).join('');
+    },
+
+    render() {
+      this.updateFormulaPreview();
+      this.renderHistory();
+      if (this.state.lastRoll) {
+        this.renderResult(this.state.lastRoll);
       }
     }
   };
@@ -2621,6 +3287,9 @@
 
     // Initialize Notes & Annotations Controller
     NotesUI.init();
+
+    // Initialize SWADE Dice Roller
+    DiceRoller.init();
   }
 
   function restoreFromHash(hash) {
@@ -2642,7 +3311,7 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'handouts', 'player-notes', 'characters', 'npc-os'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'handouts', 'player-notes', 'characters', 'npc-os', 'dice'].includes(hash)) {
       if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
