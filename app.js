@@ -6,7 +6,7 @@
   'use strict';
 
   // Master Data Store
-  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], npcFeedbacks: [], quotes: [], psycho: [], relationships: {}, handouts: [] };
+  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], npcFeedbacks: [], quotes: [], handouts: [] };
 
   // Application State
   const AppState = {
@@ -20,19 +20,16 @@
       quotesStoryline: 'all',
       quotesAuthor: 'all',
       quotesCategory: 'all',
-      psychoChar: 'all',
       allNotesAuthor: 'all',
       handoutCategory: 'all'
     },
     isAdmin: localStorage.getItem('porto_admin_mode') === 'true',
     isNpcOsUnlocked: localStorage.getItem('porto_npc_os_unlocked') === 'true',
-    selectedRelationshipPair: 'molly-heather',
-    selectedRelationshipStageIndex: 0,
     quotesSelectedSession: null,
     searchQuery: '',
     transcriptQuery: '',
     reader: {
-      docType: null, // 'chapter' | 'transcript' | 'feedback' | 'psycho' | 'handout'
+      docType: null, // 'chapter' | 'transcript' | 'feedback' | 'handout'
       sourceTab: 'games',
       currentIndex: -1,
       currentPageIndex: 0,
@@ -80,8 +77,6 @@
     charsCount: document.getElementById('charsCount'),
     quotesCount: document.getElementById('quotesCount'),
     allNotesCount: document.getElementById('allNotesCount'),
-    psychoCount: document.getElementById('psychoCount'),
-    relationshipsCount: document.getElementById('relationshipsCount'),
     handoutsCount: document.getElementById('handoutsCount'),
 
     // Grids & Dashboards
@@ -92,9 +87,6 @@
     allNotesAuthorControls: document.getElementById('allNotesAuthorControls'),
     feedbacksGrid: document.getElementById('feedbacksGrid'),
     charactersGrid: document.getElementById('charactersGrid'),
-    psychoGrid: document.getElementById('psychoGrid'),
-    relationshipPairControls: document.getElementById('relationshipPairControls'),
-    relationshipsContainer: document.getElementById('relationshipsContainer'),
 
     // Quotes Controls and Views
     quotesGrid: document.getElementById('quotesGamesView'),
@@ -116,7 +108,6 @@
     feedbackCharControls: document.getElementById('feedbackCharControls'),
     statusControls: document.getElementById('statusControls'),
     factionControls: document.getElementById('factionControls'),
-    psychoCharControls: document.getElementById('psychoCharControls'),
 
     // Unified Reader
     viewReader: document.getElementById('view-reader'),
@@ -480,8 +471,6 @@
           if (tabKey === 'games') Grids.renderGames();
           else if (tabKey === 'transcripts') Grids.renderTranscripts();
           else if (tabKey === 'quotes') Grids.renderQuotes();
-          else if (tabKey === 'psycho') Grids.renderPsycho();
-          else if (tabKey === 'relationships') Grids.renderRelationships();
           else if (tabKey === 'handouts') Grids.renderHandouts();
           else if (tabKey === 'player-notes') Grids.renderFeedbacks();
           else if (tabKey === 'npc-os') Grids.renderNpcOs();
@@ -1035,289 +1024,6 @@
       });
     },
 
-    renderPsycho() {
-      if (!DOM.psychoGrid) return;
-      DOM.psychoGrid.innerHTML = '';
-
-      const query = AppState.searchQuery;
-      const filter = AppState.filters.psychoChar;
-
-      const items = (DataStore.psycho || []).filter(item => {
-        const matchFilter = filter === 'all' || item.characterKey === filter || (filter === 'duets' && item.characterKey === 'duets') || (filter === 'overview' && item.characterKey === 'overview');
-        const matchSearch = !query ||
-          item.title.toLowerCase().includes(query) ||
-          (item.archetype && item.archetype.toLowerCase().includes(query)) ||
-          (item.diagnosis1931 && item.diagnosis1931.toLowerCase().includes(query)) ||
-          (item.summaryText && item.summaryText.toLowerCase().includes(query));
-        return matchFilter && matchSearch;
-      });
-
-      if (items.length === 0) {
-        DOM.psychoGrid.innerHTML = '<div style="grid-column:1/-1; padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Психологические досье не найдены</div>';
-        return;
-      }
-
-      items.forEach(item => {
-        const idx = DataStore.psycho.findIndex(p => p.id === item.id);
-        const card = document.createElement('div');
-        card.className = 'psycho-card';
-
-        const avatarCls = item.badgeClass || 'tag-solo';
-        const quoteHtml = item.manifestQuote ? `<div class="psycho-quote-snippet">${Utils.escapeHtml(item.manifestQuote)}</div>` : '';
-        const riskCls = item.riskClass || 'risk-high';
-        const riskTxt = item.riskLevel || 'Экспертиза';
-        const initTxt = item.initial || '🧠';
-
-        card.innerHTML = `
-          <div>
-            <div class="psycho-stamp ${riskCls}">${Utils.escapeHtml(riskTxt)}</div>
-            <div class="psycho-header">
-              <div class="psycho-avatar ${avatarCls}">${Utils.escapeHtml(initTxt)}</div>
-              <div>
-                <h3 class="card-title" style="margin-bottom:0.15rem;">${Utils.escapeHtml(item.title)}</h3>
-                <span class="badge-tag ${avatarCls}">${Utils.escapeHtml(item.archetype || item.role)}</span>
-              </div>
-            </div>
-
-            <div class="psycho-diag-block">
-              <div class="psycho-diag-item">
-                <span class="psycho-diag-label">Диагноз (1931 г.):</span>
-                <span class="psycho-diag-val">${Utils.escapeHtml(item.diagnosis1931)}</span>
-              </div>
-              <div class="psycho-diag-item">
-                <span class="psycho-diag-label">Клинический срез:</span>
-                <span class="psycho-diag-val" style="font-size:0.78rem; color:var(--text-secondary);">${Utils.escapeHtml(item.diagnosisModern)}</span>
-              </div>
-            </div>
-
-            <p class="card-thesis" style="font-size:0.84rem; line-height:1.55; margin-bottom:0.6rem;">${Utils.escapeHtml(item.summaryText)}</p>
-            ${quoteHtml}
-          </div>
-
-          <div class="card-footer-row" style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border-subtle);">
-            <span class="card-subtitle">📁 Судебная экспертиза</span>
-            <span class="card-action-link">Читать полный разбор →</span>
-          </div>
-        `;
-
-        card.addEventListener('click', () => UnifiedReader.open('psycho', idx, true));
-        DOM.psychoGrid.appendChild(card);
-      });
-    },
-
-    renderRelationships() {
-      if (!DOM.relationshipsContainer) return;
-      DOM.relationshipsContainer.innerHTML = '';
-
-      const pairKey = AppState.selectedRelationshipPair || 'molly-heather';
-      const allRels = DataStore.relationships || {};
-      const rel = allRels[pairKey];
-
-      if (!rel || !rel.stages || rel.stages.length === 0) {
-        DOM.relationshipsContainer.innerHTML = '<div style="padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Данные динамики отношений недоступны</div>';
-        return;
-      }
-
-      const stages = rel.stages;
-      let selIdx = AppState.selectedRelationshipStageIndex;
-      if (selIdx < 0 || selIdx >= stages.length) selIdx = 0;
-      const currentStage = stages[selIdx];
-
-      const getInitial = (name) => {
-        if (!name) return '?';
-        if (name.includes('Молли')) return 'М';
-        if (name.includes('Хизер')) return 'Х';
-        if (name.includes('Эйден')) return 'Э';
-        if (name.includes('Грейвз') || name.includes('Малкольм')) return 'Г';
-        if (name.includes('Адам')) return 'А';
-        if (name.includes('Крауч')) return 'К';
-        if (name.includes('Риган') || name.includes('Джек')) return 'Р';
-        if (name.includes('Сильвия')) return 'С';
-        if (name.includes('Оливер')) return 'О';
-        if (name.includes('Иван')) return 'И';
-        if (name.includes('Гектор') || name.includes('Гринго')) return 'Г';
-        return name.charAt(0);
-      };
-
-      const getTagClass = (name) => {
-        if (!name) return 'tag-solo';
-        if (name.includes('Молли')) return 'tag-molly';
-        if (name.includes('Хизер')) return 'tag-heather';
-        if (name.includes('Эйден')) return 'tag-aiden';
-        if (name.includes('Грейвз') || name.includes('Малкольм')) return 'tag-graves';
-        if (name.includes('Адам')) return 'tag-solo';
-        if (name.includes('Крауч')) return 'tag-aiden';
-        if (name.includes('Риган')) return 'tag-molly';
-        if (name.includes('Сильвия') || name.includes('Оливер') || name.includes('Иван')) return 'tag-heather';
-        if (name.includes('Гектор') || name.includes('Гринго')) return 'tag-aiden';
-        return 'tag-solo';
-      };
-
-      const container = document.createElement('div');
-      container.className = 'relationship-dashboard';
-
-      container.innerHTML = `
-        <!-- 1. Hero Pair Header Card -->
-        <div class="rel-hero-card">
-          <div class="rel-hero-top">
-            <div class="rel-duo-avatars">
-              <div class="rel-avatar ${getTagClass(rel.char1)}">${getInitial(rel.char1)}</div>
-              <div class="rel-avatar-connector">⟷</div>
-              <div class="rel-avatar ${getTagClass(rel.char2)}">${getInitial(rel.char2)}</div>
-            </div>
-            <div class="rel-hero-title-group">
-              <h3>${Utils.escapeHtml(rel.pairName)}</h3>
-              <div class="rel-badges-row">
-                <span class="badge-tag ${rel.badgeClass || 'tag-molly'}">${Utils.escapeHtml(rel.archetype)}</span>
-                <span class="rel-status-pill">${Utils.escapeHtml(rel.status)}</span>
-              </div>
-            </div>
-          </div>
-          <p class="rel-hero-summary">${Utils.escapeHtml(rel.summary)}</p>
-        </div>
-
-        <!-- 2. Interactive Stepper Timeline / Time Slider -->
-        <div class="rel-stepper-card">
-          <div class="rel-stepper-header">
-            <div>
-              <h4>Хронологический слайдер динамики отношений (1931)</h4>
-              <p>Нажмите на любую фазу, чтобы изучить смещение баланса доверия, напряжения и привязанности</p>
-            </div>
-            <span class="rel-step-counter">Фаза ${selIdx + 1} из ${stages.length}</span>
-          </div>
-
-          <div class="rel-timeline-track">
-            ${stages.map((st, idx) => {
-              const isAct = idx === selIdx;
-              const isPassed = idx < selIdx;
-              return `
-                <div class="rel-step-node ${isAct ? 'active' : ''} ${isPassed ? 'passed' : ''}" data-stage-idx="${idx}">
-                  <div class="rel-step-circle">
-                    <span class="rel-step-num">${idx + 1}</span>
-                  </div>
-                  <div class="rel-step-labels">
-                    <span class="rel-step-date">${Utils.escapeHtml(st.gameDate)}</span>
-                    <span class="rel-step-title">${Utils.escapeHtml(st.title)}</span>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-
-        <!-- 3. Dynamic Multi-Metric Level Meters -->
-        <div class="rel-metrics-card">
-          <h4 class="rel-metrics-title">Психологический баланс фазы: «${Utils.escapeHtml(currentStage.title)}»</h4>
-          <div class="rel-metrics-grid">
-            <!-- Trust Meter -->
-            <div class="rel-metric-box">
-              <div class="rel-metric-top">
-                <span class="rel-metric-label">🟢 Уровень взаимного доверия:</span>
-                <span class="rel-metric-val" style="color:#30d158;">${currentStage.trust}%</span>
-              </div>
-              <div class="metric-bar-wrap">
-                <div class="metric-bar-fill" style="width:${currentStage.trust}%; background: linear-gradient(90deg, #30d158, #34c759);"></div>
-              </div>
-            </div>
-
-            <!-- Codependency Meter -->
-            <div class="rel-metric-box">
-              <div class="rel-metric-top">
-                <span class="rel-metric-label">🟣 Созависимость / Привязанность:</span>
-                <span class="rel-metric-val" style="color:#bf5af2;">${currentStage.codependency}%</span>
-              </div>
-              <div class="metric-bar-wrap">
-                <div class="metric-bar-fill" style="width:${currentStage.codependency}%; background: linear-gradient(90deg, #af52de, #bf5af2);"></div>
-              </div>
-            </div>
-
-            <!-- Tension Meter -->
-            <div class="rel-metric-box">
-              <div class="rel-metric-top">
-                <span class="rel-metric-label">🔴 Напряжение / Уровень конфликта:</span>
-                <span class="rel-metric-val" style="color:#ff453a;">${currentStage.tension}%</span>
-              </div>
-              <div class="metric-bar-wrap">
-                <div class="metric-bar-fill" style="width:${currentStage.tension}%; background: linear-gradient(90deg, #ff9f0a, #ff453a);"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4. Detailed Stage Breakdown Card -->
-        <div class="rel-detail-card">
-          <div class="rel-detail-header">
-            <div class="rel-detail-title-group">
-              <div class="rel-detail-badge-row">
-                <span class="date-pill">${Utils.escapeHtml(currentStage.gameDate)}</span>
-                <span class="badge-tag ${rel.badgeClass || 'tag-molly'}">${Utils.escapeHtml(currentStage.sessionKey)}</span>
-                <span class="${currentStage.statusClass || 'status-alive-text'}" style="font-weight:700; font-size:0.85rem;">● ${Utils.escapeHtml(currentStage.status)}</span>
-              </div>
-              <h3 class="rel-detail-heading">${Utils.escapeHtml(currentStage.title)}</h3>
-            </div>
-
-            ${currentStage.chapterId ? `
-              <button class="btn-icon-text" id="btnRelOpenChapter" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-card); padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--gold-accent);">
-                📖 Читать главу
-              </button>
-            ` : ''}
-          </div>
-
-          <div class="rel-detail-body">
-            <!-- Event Trigger Description -->
-            <div class="rel-info-section">
-              <h5 class="rel-section-label">⚡ Событийный триггер и поворот сюжета:</h5>
-              <p class="rel-section-text">${Utils.escapeHtml(currentStage.description)}</p>
-            </div>
-
-            <!-- Dialogue / Quote Box -->
-            ${currentStage.quote ? `
-              <div class="rel-quote-box">
-                <div class="rel-quote-icon">💬</div>
-                <div class="rel-quote-content">
-                  <span class="rel-quote-label">Знаковый диалог / Манифест:</span>
-                  <p class="rel-quote-text">${Utils.escapeHtml(currentStage.quote)}</p>
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Clinical / Psychological Analysis -->
-            <div class="rel-psychology-box">
-              <div class="rel-psych-icon">🧠</div>
-              <div class="rel-psych-content">
-                <span class="rel-psych-label">Клинико-психологический анализ динамики:</span>
-                <p class="rel-psych-text">${Utils.escapeHtml(currentStage.psychology)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-
-      // Attach Step Nodes listeners
-      container.querySelectorAll('.rel-step-node').forEach(node => {
-        node.addEventListener('click', () => {
-          const idx = parseInt(node.getAttribute('data-stage-idx') || '0', 10);
-          AppState.selectedRelationshipStageIndex = idx;
-          Grids.renderRelationships();
-        });
-      });
-
-      // Attach Open Chapter button
-      const btnOpenChapter = container.querySelector('#btnRelOpenChapter');
-      if (btnOpenChapter && currentStage.chapterId) {
-        btnOpenChapter.addEventListener('click', () => {
-          const sumIdx = (DataStore.summaries || []).findIndex(s => s.id === currentStage.chapterId);
-          if (sumIdx !== -1) {
-            UnifiedReader.open('chapter', sumIdx, true);
-          } else {
-            Navigation.switchTab('games', true);
-          }
-        });
-      }
-
-      DOM.relationshipsContainer.appendChild(container);
-    },
-
     renderHandouts() {
       if (!DOM.handoutsGrid) return;
       DOM.handoutsGrid.innerHTML = '';
@@ -1398,11 +1104,6 @@
         totalCount = DataStore.feedbacks.length;
         backTab = 'player-notes';
         backLabel = '← К дневнику ОС';
-      } else if (docType === 'psycho') {
-        doc = DataStore.psycho[index];
-        totalCount = (DataStore.psycho || []).length;
-        backTab = 'psycho';
-        backLabel = '← К псих. архиву';
       } else if (docType === 'npc-feedback') {
         doc = (DataStore.npcFeedbacks || [])[index];
         totalCount = (DataStore.npcFeedbacks || []).length;
@@ -1498,7 +1199,6 @@
       let filename = doc.file;
       if (docType === 'transcript') folder = 'transcripts';
       else if (docType === 'feedback' || docType === 'npc-feedback') folder = 'feedbacks';
-      else if (docType === 'psycho') folder = 'psycho';
 
       fetch('./' + folder + '/' + encodeURIComponent(filename))
         .then(res => res.text())
@@ -1516,7 +1216,7 @@
     },
 
     renderBodyText(docType, text) {
-      if (docType === 'chapter' || docType === 'psycho') {
+      if (docType === 'chapter') {
         DOM.readerBody.innerHTML = Utils.parseMarkdown(text);
       } else if (docType === 'transcript') {
         DOM.readerBody.innerHTML = Utils.formatTranscript(text, AppState.transcriptQuery);
@@ -1969,7 +1669,6 @@
       else if (docType === 'transcript') doc = DataStore.transcripts[currentIndex];
       else if (docType === 'feedback') doc = DataStore.feedbacks[currentIndex];
       else if (docType === 'npc-feedback') doc = DataStore.npcFeedbacks[currentIndex];
-      else if (docType === 'psycho') doc = DataStore.psycho[currentIndex];
       else if (docType === 'handout') doc = (DataStore.handouts || [])[currentIndex];
       if (!doc) return null;
       return docType + ':' + (doc.id || doc.file || doc.title);
@@ -1982,7 +1681,6 @@
       else if (docType === 'transcript') doc = DataStore.transcripts[currentIndex];
       else if (docType === 'feedback') doc = DataStore.feedbacks[currentIndex];
       else if (docType === 'npc-feedback') doc = DataStore.npcFeedbacks[currentIndex];
-      else if (docType === 'psycho') doc = DataStore.psycho[currentIndex];
       else if (docType === 'handout') doc = (DataStore.handouts || [])[currentIndex];
       return doc ? doc.title : 'Документ';
     },
@@ -2132,7 +1830,6 @@
       if (docType === 'chapter') list = DataStore.summaries;
       else if (docType === 'transcript') list = DataStore.transcripts;
       else if (docType === 'feedback') list = DataStore.feedbacks;
-      else if (docType === 'psycho') list = DataStore.psycho;
 
       const idx = list.findIndex(d => (d.id === docId || d.file === docId || d.title === docId));
       if (idx !== -1) {
@@ -2722,7 +2419,6 @@
       else if (type === 'transcript' && DataStore.transcripts[idx]) text = DataStore.transcripts[idx].rawText;
       else if (type === 'feedback' && DataStore.feedbacks[idx]) text = DataStore.feedbacks[idx].content;
       else if (type === 'npc-feedback' && DataStore.npcFeedbacks[idx]) text = DataStore.npcFeedbacks[idx].content;
-      else if (type === 'psycho' && DataStore.psycho[idx]) text = DataStore.psycho[idx].content;
       else if (type === 'handout' && DataStore.handouts[idx]) {
         const h = DataStore.handouts[idx];
         const p = h.pages[AppState.reader.currentPageIndex || 0] || h.pages[0];
@@ -2823,20 +2519,7 @@
     setupSegmented(DOM.quotesAuthorControls, 'quotesAuthor', Grids.renderQuotes);
     setupSegmented(DOM.quotesCategoryControls, 'quotesCategory', Grids.renderQuotes);
     setupSegmented(DOM.allNotesAuthorControls, 'allNotesAuthor', Grids.renderAllNotes);
-    setupSegmented(DOM.psychoCharControls, 'psychoChar', Grids.renderPsycho);
     setupSegmented(DOM.handoutCategoryControls, 'handoutCategory', Grids.renderHandouts);
-    // Relationship Pair Controls
-    if (DOM.relationshipPairControls) {
-      DOM.relationshipPairControls.addEventListener('click', (e) => {
-        const btn = e.target.closest('.segment-btn');
-        if (!btn) return;
-        DOM.relationshipPairControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        AppState.selectedRelationshipPair = btn.getAttribute('data-pair');
-        AppState.selectedRelationshipStageIndex = 0;
-        Grids.renderRelationships();
-      });
-    }
 
     // Quotes Back Button
     if (DOM.quotesBtnBack) {
@@ -2864,15 +2547,7 @@
 
         e.preventDefault();
 
-        // 1. Check if it points to a psycho profile (.md or baseId)
-        const cleanHref = href.replace(/\.md$/, '').replace(/^\.\//, '');
-        const psychoIdx = (DataStore.psycho || []).findIndex(p => p.id === cleanHref || p.file === href || p.id === href);
-        if (psychoIdx !== -1) {
-          UnifiedReader.open('psycho', psychoIdx, true);
-          return;
-        }
-
-        // 2. Check if it points to a chapter summary
+        // 1. Check if it points to a chapter summary
         const summaryIdx = (DataStore.summaries || []).findIndex(s => s.id === cleanHref || s.id === href);
         if (summaryIdx !== -1) {
           UnifiedReader.open('chapter', summaryIdx, true);
@@ -2967,7 +2642,7 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'handouts', 'player-notes', 'characters', 'psycho', 'relationships', 'npc-os'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'handouts', 'player-notes', 'characters', 'npc-os'].includes(hash)) {
       if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
@@ -2980,10 +2655,8 @@
   if (DOM.transcriptsCount) DOM.transcriptsCount.textContent = DataStore.transcripts.length;
   if (DOM.feedbacksCount) DOM.feedbacksCount.textContent = DataStore.feedbacks.length;
   if (DOM.charsCount) DOM.charsCount.textContent = DataStore.characters.length;
-  if (DOM.psychoCount) DOM.psychoCount.textContent = (DataStore.psycho || []).length;
   if (DOM.handoutsCount) DOM.handoutsCount.textContent = (DataStore.handouts || []).length;
   if (DOM.allNotesCount) DOM.allNotesCount.textContent = AnnotationsService.getAllNotesFlat().length;
-  if (DOM.relationshipsCount) DOM.relationshipsCount.textContent = Object.keys(DataStore.relationships || {}).length || 12;
   if (DOM.quotesCount) {
     const totalQuotesAll = (DataStore.quotes || []).reduce((sum, q) => sum + (q.totalQuotesCount || 0), 0);
     DOM.quotesCount.textContent = totalQuotesAll;
