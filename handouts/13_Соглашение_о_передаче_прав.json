@@ -1,0 +1,22 @@
+{
+  "id": "87YIi4sNjl94Bk27",
+  "num": 13,
+  "title": "ДОКУМЕНТ: Соглашение о передаче прав",
+  "category": "docs",
+  "categoryLabel": "Документы и бухгалтерия",
+  "badgeClass": "tag-doc",
+  "icon": "📜",
+  "gameDate": "Октябрь 1931",
+  "date": "Октябрь 1931",
+  "thesis": "Юридическое соглашение об операционном управлении синдиката Fisher Logistics & Port Authorities (1930).",
+  "excerpt": "СОГЛАШЕНИЕ ОБ ОПЕРАЦИОННОМ УПРАВЛЕНИИ Дата: 12 Ноября 1930 года. Сторона 1 (Передающая): Синдикат \"Fisher Logistics &amp; Port Authorities\" в лице законного представителя А. Фишера. Сторона 2 (Принимающая): Транспортная компания \"BlueWave M...",
+  "pagesCount": 1,
+  "pages": [
+    {
+      "id": "UqYxJCNF0a3MV2FQ",
+      "name": "Текст контракта",
+      "html": "<div style=\"background-color:#d1cbc0;padding:30px;border:2px solid #3b3b3b;font-family:'Times New Roman', serif;color:#1a1a1a;box-shadow:inset 0 0 20px rgba(0,0,0,0.5);max-width:600px;margin:0 auto\">\n  <h2 style=\"text-align:center;border-bottom:2px solid #1a1a1a;padding-bottom:10px;font-weight:bold;letter-spacing:2px\">СОГЛАШЕНИЕ ОБ ОПЕРАЦИОННОМ УПРАВЛЕНИИ</h2>\n  \n  <p style=\"text-align:right;font-style:italic\"><b>Дата:</b> 12 Ноября 1930 года.</p>\n  \n  <p><b>Сторона 1 (Передающая):</b> Синдикат \"Fisher Logistics &amp; Port Authorities\" в лице законного представителя А. Фишера.</p>\n  <p><b>Сторона 2 (Принимающая):</b> Транспортная компания \"BlueWave Maritime Ltd.\"</p>\n  \n  <h3 style=\"margin-top:20px\">1. Предмет договора</h3>\n  <p style=\"text-indent:20px;text-align:justify\">Настоящим документом подтверждается безвозмездная передача прав на операционное управление <b>Северным Доком №4</b> сроком на 10 (десять) лет в пользу Стороны 2.</p>\n  \n  <h3 style=\"margin-top:20px\">2. Обязательства по модернизации</h3>\n  <p style=\"text-indent:20px;text-align:justify\">Сторона 2 обязуется за свой счет провести дноуглубительные работы прилегающего фарватера до отметки 35 футов для обеспечения швартовки судов тяжелой осадки.</p>\n  <p style=\"text-indent:20px;text-align:justify\">Смета на капитальный ремонт наземных складских помещений утверждена. Заявленный объем строительных материалов на текущий квартал: 400 квадратных футов профнастила, 50 мешков цемента, 2 тонны технической соли.</p>\n\n  <h3 style=\"margin-top:20px\">3. Особые условия</h3>\n  <p style=\"text-indent:20px;text-align:justify\">В связи с аварийным состоянием объекта, на весь период проведения работ (не более 24 месяцев) территория Северного Дока №4 объявляется закрытой санитарно-ремонтной зоной. Доступ муниципальных инспекторов и стандартный таможенный досмотр прибывающих строительных барж Стороны 2 временно приостанавливается до подписания акта приемки объекта.</p>\n  \n  <hr style=\"border:1px dashed #1a1a1a;margin:30px 0\">\n  \n  <div style=\"display:flex;justify-content:space-between;margin-top:40px\">\n    <div style=\"text-align:center\">\n      <p><i>А. Фишер</i></p>\n      <p style=\"border-top:1px solid #1a1a1a;width:200px;padding-top:5px\">(Подпись Стороны 1)</p>\n    </div>\n    <div style=\"text-align:center\">\n      <p><i>В. Карбоне</i></p>\n      <p style=\"border-top:1px solid #1a1a1a;width:200px;padding-top:5px\">(Подпись Стороны 2)</p>\n    </div>\n  </div>\n</div>",
+      "sort": 0
+    }
+  ]
+}

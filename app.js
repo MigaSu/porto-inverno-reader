@@ -6,7 +6,7 @@
   'use strict';
 
   // Master Data Store
-  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], npcFeedbacks: [], quotes: [], psycho: [], relationships: {} };
+  const DataStore = window.PORTO_DATA || { summaries: [], characters: [], transcripts: [], feedbacks: [], npcFeedbacks: [], quotes: [], psycho: [], relationships: {}, handouts: [] };
 
   // Application State
   const AppState = {
@@ -21,7 +21,8 @@
       quotesAuthor: 'all',
       quotesCategory: 'all',
       psychoChar: 'all',
-      allNotesAuthor: 'all'
+      allNotesAuthor: 'all',
+      handoutCategory: 'all'
     },
     isAdmin: localStorage.getItem('porto_admin_mode') === 'true',
     isNpcOsUnlocked: localStorage.getItem('porto_npc_os_unlocked') === 'true',
@@ -31,9 +32,10 @@
     searchQuery: '',
     transcriptQuery: '',
     reader: {
-      docType: null, // 'chapter' | 'transcript' | 'feedback' | 'psycho'
+      docType: null, // 'chapter' | 'transcript' | 'feedback' | 'psycho' | 'handout'
       sourceTab: 'games',
       currentIndex: -1,
+      currentPageIndex: 0,
       fontSize: 1.08
     }
   };
@@ -80,10 +82,12 @@
     allNotesCount: document.getElementById('allNotesCount'),
     psychoCount: document.getElementById('psychoCount'),
     relationshipsCount: document.getElementById('relationshipsCount'),
+    handoutsCount: document.getElementById('handoutsCount'),
 
     // Grids & Dashboards
     gamesGrid: document.getElementById('gamesGrid'),
     transcriptsGrid: document.getElementById('transcriptsGrid'),
+    handoutsGrid: document.getElementById('handoutsGrid'),
     allNotesGrid: document.getElementById('allNotesGrid'),
     allNotesAuthorControls: document.getElementById('allNotesAuthorControls'),
     feedbacksGrid: document.getElementById('feedbacksGrid'),
@@ -108,6 +112,7 @@
     // Segmented Controls
     storylineControls: document.getElementById('storylineControls'),
     transcriptStorylineControls: document.getElementById('transcriptStorylineControls'),
+    handoutCategoryControls: document.getElementById('handoutCategoryControls'),
     feedbackCharControls: document.getElementById('feedbackCharControls'),
     statusControls: document.getElementById('statusControls'),
     factionControls: document.getElementById('factionControls'),
@@ -122,6 +127,8 @@
     readerReadTime: document.getElementById('readerReadTime'),
     readerTitle: document.getElementById('readerTitle'),
     readerThesis: document.getElementById('readerThesis'),
+    readerPageSwitcher: document.getElementById('readerPageSwitcher'),
+    readerPageTabs: document.getElementById('readerPageTabs'),
     readerBody: document.getElementById('readerBody'),
     readerFilterBar: document.getElementById('readerFilterBar'),
     readerFilterInput: document.getElementById('readerFilterInput'),
@@ -475,6 +482,7 @@
           else if (tabKey === 'quotes') Grids.renderQuotes();
           else if (tabKey === 'psycho') Grids.renderPsycho();
           else if (tabKey === 'relationships') Grids.renderRelationships();
+          else if (tabKey === 'handouts') Grids.renderHandouts();
           else if (tabKey === 'player-notes') Grids.renderFeedbacks();
           else if (tabKey === 'npc-os') Grids.renderNpcOs();
           else if (tabKey === 'all-notes') Grids.renderAllNotes();
@@ -1310,6 +1318,58 @@
       DOM.relationshipsContainer.appendChild(container);
     },
 
+    renderHandouts() {
+      if (!DOM.handoutsGrid) return;
+      DOM.handoutsGrid.innerHTML = '';
+
+      const query = AppState.searchQuery;
+      const filter = AppState.filters.handoutCategory || 'all';
+
+      const items = (DataStore.handouts || []).filter(item => {
+        const matchFilter = filter === 'all' || item.category === filter;
+        const matchSearch = !query ||
+          item.title.toLowerCase().includes(query) ||
+          item.thesis.toLowerCase().includes(query) ||
+          item.excerpt.toLowerCase().includes(query) ||
+          (item.pages && item.pages.some(p => p.name.toLowerCase().includes(query) || p.html.toLowerCase().includes(query)));
+        return matchFilter && matchSearch;
+      });
+
+      if (items.length === 0) {
+        DOM.handoutsGrid.innerHTML = '<div style="grid-column:1/-1; padding:4rem 1rem; text-align:center; color:var(--text-tertiary);">Материалы и улики не найдены</div>';
+        return;
+      }
+
+      items.forEach(item => {
+        const idx = DataStore.handouts.findIndex(h => h.id === item.id);
+        const card = document.createElement('div');
+        card.className = 'handout-card';
+
+        const pagesText = item.pagesCount === 1 ? '1 страница' : `${item.pagesCount} ${Utils.pluralize(item.pagesCount, ['страница', 'страницы', 'страниц'])}`;
+
+        card.innerHTML = `
+          <div>
+            <div class="handout-header">
+              <div class="handout-badges">
+                <span class="badge-tag ${item.badgeClass}">${Utils.escapeHtml(item.categoryLabel)}</span>
+                <span class="handout-pages-badge">📑 ${pagesText}</span>
+              </div>
+              <span class="handout-icon">${item.icon || '📄'}</span>
+            </div>
+            <h3 class="handout-title">${Utils.escapeHtml(item.title)}</h3>
+            <p class="handout-excerpt">${Utils.escapeHtml(item.excerpt)}</p>
+          </div>
+          <div class="handout-footer">
+            <span>📅 ${Utils.escapeHtml(item.gameDate || 'Октябрь 1931')}</span>
+            <span class="handout-action-link">Изучить документ →</span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => UnifiedReader.open('handout', idx, true));
+        DOM.handoutsGrid.appendChild(card);
+      });
+    },
+
   };
 
   // Unified Single Reader Engine
@@ -1348,6 +1408,11 @@
         totalCount = (DataStore.npcFeedbacks || []).length;
         backTab = 'npc-os';
         backLabel = '← К папке «ОС NPC»';
+      } else if (docType === 'handout') {
+        doc = (DataStore.handouts || [])[index];
+        totalCount = (DataStore.handouts || []).length;
+        backTab = 'handouts';
+        backLabel = '← К материалам';
       }
 
       if (!doc) return;
@@ -1392,6 +1457,10 @@
       DOM.readerThesis.textContent = doc.thesis ? '«' + doc.thesis + '»' : (doc.diagnosis1931 ? '«' + doc.diagnosis1931 + '»' : (doc.role ? '«' + doc.role + '»' : ''));
       DOM.readerThesis.style.display = (doc.thesis || doc.role || doc.diagnosis1931) ? 'block' : 'none';
 
+      // Page Switcher for multi-page documents
+      AppState.reader.currentPageIndex = 0;
+      this.renderPageSwitcher(doc);
+
       // Prev / Next
       DOM.btnPrev.disabled = index <= 0;
       DOM.btnNext.disabled = index >= totalCount - 1;
@@ -1409,6 +1478,11 @@
     },
 
     loadContent(docType, doc, index) {
+      if (docType === 'handout') {
+        this.renderHandoutContent(doc);
+        return;
+      }
+
       if (doc.content || doc.rawText) {
         UnifiedReader.renderBodyText(docType, doc.content || doc.rawText);
         return;
@@ -1454,6 +1528,58 @@
       }
 
       // Inject Player Annotations and Stickers
+      setTimeout(() => {
+        NotesUI.renderDocHighlights();
+      }, 70);
+    },
+
+    renderPageSwitcher(doc) {
+      if (!DOM.readerPageSwitcher || !DOM.readerPageTabs) return;
+      if (!doc || !doc.pages || doc.pages.length <= 1) {
+        DOM.readerPageSwitcher.style.display = 'none';
+        return;
+      }
+
+      DOM.readerPageSwitcher.style.display = 'flex';
+      DOM.readerPageTabs.innerHTML = '';
+
+      doc.pages.forEach((page, pIdx) => {
+        const btn = document.createElement('button');
+        btn.className = 'reader-page-tab' + (pIdx === (AppState.reader.currentPageIndex || 0) ? ' active' : '');
+        btn.textContent = `${pIdx + 1}. ${page.name || 'Часть ' + (pIdx + 1)}`;
+        btn.addEventListener('click', () => {
+          AppState.reader.currentPageIndex = pIdx;
+          DOM.readerPageTabs.querySelectorAll('.reader-page-tab').forEach((b, i) => {
+            b.classList.toggle('active', i === pIdx);
+          });
+          this.renderHandoutContent(doc);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        DOM.readerPageTabs.appendChild(btn);
+      });
+    },
+
+    renderHandoutContent(doc) {
+      if (!doc || !doc.pages) return;
+      const curIdx = AppState.reader.currentPageIndex || 0;
+      const page = doc.pages[curIdx] || doc.pages[0];
+      if (!page) return;
+
+      let html = page.html || '<p>Содержимое страницы отсутствует</p>';
+
+      const hasOuterWrap = html.includes('heather-letter') || 
+                           html.includes('porto-inverno-letter') || 
+                           html.includes('style="background') || 
+                           html.includes('style="font-family');
+      if (!hasOuterWrap) {
+        if (doc.category === 'letters') {
+          html = `<div class="noir-letter-wrap">${html}</div>`;
+        } else {
+          html = `<div class="vintage-doc-wrap">${html}</div>`;
+        }
+      }
+
+      DOM.readerBody.innerHTML = html;
       setTimeout(() => {
         NotesUI.renderDocHighlights();
       }, 70);
@@ -1823,7 +1949,9 @@
       if (docType === 'chapter') doc = DataStore.summaries[currentIndex];
       else if (docType === 'transcript') doc = DataStore.transcripts[currentIndex];
       else if (docType === 'feedback') doc = DataStore.feedbacks[currentIndex];
+      else if (docType === 'npc-feedback') doc = DataStore.npcFeedbacks[currentIndex];
       else if (docType === 'psycho') doc = DataStore.psycho[currentIndex];
+      else if (docType === 'handout') doc = (DataStore.handouts || [])[currentIndex];
       if (!doc) return null;
       return docType + ':' + (doc.id || doc.file || doc.title);
     },
@@ -1834,7 +1962,9 @@
       if (docType === 'chapter') doc = DataStore.summaries[currentIndex];
       else if (docType === 'transcript') doc = DataStore.transcripts[currentIndex];
       else if (docType === 'feedback') doc = DataStore.feedbacks[currentIndex];
+      else if (docType === 'npc-feedback') doc = DataStore.npcFeedbacks[currentIndex];
       else if (docType === 'psycho') doc = DataStore.psycho[currentIndex];
+      else if (docType === 'handout') doc = (DataStore.handouts || [])[currentIndex];
       return doc ? doc.title : 'Документ';
     },
 
@@ -2574,6 +2704,11 @@
       else if (type === 'feedback' && DataStore.feedbacks[idx]) text = DataStore.feedbacks[idx].content;
       else if (type === 'npc-feedback' && DataStore.npcFeedbacks[idx]) text = DataStore.npcFeedbacks[idx].content;
       else if (type === 'psycho' && DataStore.psycho[idx]) text = DataStore.psycho[idx].content;
+      else if (type === 'handout' && DataStore.handouts[idx]) {
+        const h = DataStore.handouts[idx];
+        const p = h.pages[AppState.reader.currentPageIndex || 0] || h.pages[0];
+        text = p ? p.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+      }
 
       if (text) {
         navigator.clipboard.writeText(text).then(() => Utils.showToast('✓ Текст скопирован в буфер!'));
@@ -2670,6 +2805,7 @@
     setupSegmented(DOM.quotesCategoryControls, 'quotesCategory', Grids.renderQuotes);
     setupSegmented(DOM.allNotesAuthorControls, 'allNotesAuthor', Grids.renderAllNotes);
     setupSegmented(DOM.psychoCharControls, 'psychoChar', Grids.renderPsycho);
+    setupSegmented(DOM.handoutCategoryControls, 'handoutCategory', Grids.renderHandouts);
     // Relationship Pair Controls
     if (DOM.relationshipPairControls) {
       DOM.relationshipPairControls.addEventListener('click', (e) => {
@@ -2812,7 +2948,7 @@
       } else {
         Navigation.switchTab('games', false);
       }
-    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'player-notes', 'characters', 'psycho', 'relationships', 'npc-os'].includes(hash)) {
+    } else if (hash && ['games', 'transcripts', 'quotes', 'all-notes', 'handouts', 'player-notes', 'characters', 'psycho', 'relationships', 'npc-os'].includes(hash)) {
       if (hash === 'quotes') AppState.quotesSelectedSession = null;
       Navigation.switchTab(hash, false);
     } else {
@@ -2826,6 +2962,7 @@
   if (DOM.feedbacksCount) DOM.feedbacksCount.textContent = DataStore.feedbacks.length;
   if (DOM.charsCount) DOM.charsCount.textContent = DataStore.characters.length;
   if (DOM.psychoCount) DOM.psychoCount.textContent = (DataStore.psycho || []).length;
+  if (DOM.handoutsCount) DOM.handoutsCount.textContent = (DataStore.handouts || []).length;
   if (DOM.allNotesCount) DOM.allNotesCount.textContent = AnnotationsService.getAllNotesFlat().length;
   if (DOM.relationshipsCount) DOM.relationshipsCount.textContent = Object.keys(DataStore.relationships || {}).length || 12;
   if (DOM.quotesCount) {

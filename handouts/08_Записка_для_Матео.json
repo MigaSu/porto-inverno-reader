@@ -1,0 +1,22 @@
+{
+  "id": "yxD4uS9EJM0H5CR0",
+  "num": 8,
+  "title": "Записка для Матео",
+  "category": "letters",
+  "categoryLabel": "Письма и записки",
+  "badgeClass": "tag-letter",
+  "icon": "✉️",
+  "gameDate": "Октябрь 1931",
+  "date": "Октябрь 1931",
+  "thesis": "Конфиденциальная записка лично в руки Матео по поводу организации закрытого банкета.",
+  "excerpt": "[ Конфиденциально / Лично в руки ] Матео. Надеемся, праздничный вечер в твоем заведении пройдет с должным почтением к высоким гостям. Когда музыка стихнет и банкет закончится, человек, занимающий место №3 за центральным столом, не должен уп...",
+  "pagesCount": 1,
+  "pages": [
+    {
+      "id": "3iXVfOmksjRnljbo",
+      "name": "Текст записки",
+      "html": "<div style=\"background:#f4ecd8;color:#1a1a1a;padding:25px;border:2px solid #5c4a38;box-shadow:0 0 10px rgba(0,0,0,0.5);font-family:'Courier New', Courier, monospace;line-height:1.5\">\n    <div style=\"text-align:right;font-size:0.85em;color:#666;margin-bottom:20px;text-transform:uppercase;letter-weight:bold\">\n      [ Конфиденциально / Лично в руки ]\n    </div>\n    <p style=\"font-weight:bold;font-size:1.1em\">Матео.</p>\n    <p>Надеемся, праздничный вечер в твоем заведении пройдет с должным почтением к высоким гостям.</p>\n    <p>Когда музыка стихнет и банкет закончится, человек, занимающий <strong>место №3</strong> за центральным столом, не должен упустить твоего внимания. Проследи за ним: куда он направится и с кем встретится до рассвета.</p>\n    <p>Помни: от твоего усердия зависит, останутся ли события весенней ночи <strong>1920 года</strong> нашей общей маленькой тайной.</p>\n    <br>\n    <p style=\"text-align:right;font-style:italic;margin-top:20px\">Желаем успешного вечера.</p>\n    <div style=\"border-top:1px dashed #8b7355;margin-top:25px;padding-top:10px;font-size:0.75em;color:#7a6855;text-align:center\">\n      * Следы чернил от печатной машинки Underwood No.5 *\n    </div>\n  </div>",
+      "sort": 0
+    }
+  ]
+}

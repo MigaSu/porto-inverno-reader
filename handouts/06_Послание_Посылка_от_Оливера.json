@@ -1,0 +1,22 @@
+{
+  "id": "aYot1uQoeJFrIjVW",
+  "num": 6,
+  "title": "Послание (Посылка от Оливера)",
+  "category": "letters",
+  "categoryLabel": "Письма и записки",
+  "badgeClass": "tag-letter",
+  "icon": "✉️",
+  "gameDate": "Октябрь 1931",
+  "date": "Октябрь 1931",
+  "thesis": "Стихотворный шифр и послание от Оливера, переданное вместе с посылкой.",
+  "excerpt": "В лабиринте узких улиц замирает тишина, Сквозь туманную вуаль едва видима луна. Этот тяжелый гул и глухой удар в ночи Словно старый приговор от сгоревшей свечи. Для спасения уставших и чужих разбитых душ Прячет искренние слезы пролившийся т...",
+  "pagesCount": 1,
+  "pages": [
+    {
+      "id": "552JlmFblgaKKBKD",
+      "name": "Посылка от Оливера",
+      "html": "<div style=\"background:#e8e2d5;color:#1a1a1a;padding:20px;font-family:'Courier New', Courier, monospace;line-height:1.4\">\n    \n    \n    <div style=\"background:#f4ecd8;border:1px solid #b8a898;padding:20px;margin-bottom:20px;box-shadow:2px 2px 5px rgba(0,0,0,0.15)\">\n      <div style=\"font-style:italic;font-size:0.9em;line-height:1.6;color:#222\">\n        В лабиринте узких улиц замирает тишина,<br>\n        Сквозь туманную вуаль едва видима луна.<br>\n        Этот тяжелый гул и глухой удар в ночи<br>\n        Словно старый приговор от сгоревшей свечи.<br>\n        Для спасения уставших и чужих разбитых душ<br>\n        Прячет искренние слезы пролившийся тушь... И лишь для твоих глаз.\n      </div>\n      <div style=\"margin-top:20px;font-weight:bold;text-align:center;font-size:1.1em;letter-spacing:4px;color:#000;border-top:1px dashed #a89888;padding-top:10px\">\n        31365155610\n      </div>\n    </div>\n\n    \n    <div style=\"background:#ffffff;border:1px dashed #444;padding:20px;margin-bottom:20px\">\n      <div style=\"font-weight:bold;text-transform:uppercase;font-size:0.9em;text-align:center;border-bottom:1px solid #000;padding-bottom:5px;margin-bottom:12px;color:#8b0000\">\n        «Басня про великого индюка Адама»\n      </div>\n      <div style=\"font-size:0.88em;font-style:italic;line-height:1.6;color:#222;text-align:justify;background:#fdfdfd;padding:12px;border:1px solid #ddd\">\n        «Старый индюк Адам Фишер встает ровно в <b>8</b> утра, чтобы <b>5</b> раз пересчитать свои украденные деньги. К <b>10</b> часам он натягивает корсет, которому уже <b>20</b> лет, и скармливает своей кошке <b>6</b> тухлых сардин. Ровно в <b>19</b> минут первого этот так называемый великий босс прячется под кровать от звука грома с <b>10</b> бутылками валерьянки. В <b>4</b> часа дня он выгоняет на улицу <b>15</b> слуг за громкое чихание, оставаясь у разбитого корыта с <b>1</b> золотым зубом и <b>13</b> жадными родственниками...»\n      </div>\n    </div>\n\n    \n    <div style=\"background:#fdfdfd;border:1px solid #d0d0d0;padding:20px;box-shadow:inset 0 0 8px rgba(0,0,0,0.05)\">\n      <div style=\"text-align:right;font-size:1.05em;font-weight:bold;letter-spacing:2px;padding:10px 0;color:#111;font-style:italic\">\n        С уважением,<br>\n        Имався Ергивя, 1373 г.\n      </div>\n    </div>\n\n  </div>",
+      "sort": 0
+    }
+  ]
+}
