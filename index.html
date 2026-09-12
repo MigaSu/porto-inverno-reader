@@ -3663,15 +3663,16 @@ html, body {
 
 .outcome-title {
   font-family: var(--font-title);
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.25rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
 }
 
 .outcome-desc {
-  font-size: 0.85rem;
-  opacity: 0.9;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  opacity: 0.95;
 }
 
 /* Foundry Actions Footer */
@@ -4188,13 +4189,8 @@ html, body {
       <section class="view-panel" id="view-dice">
         <div class="view-header">
           <div class="view-title-group">
-            <h2>Бросок кубиков SWADE (Foundry VTT)</h2>
-            <p>Интерактивный дайсроллер по правилам Savage Worlds: взрывы (Aces), дикий кубик d6, расчёт подъёмов и экспорт в чат Foundry</p>
-          </div>
-
-          <div class="segmented-control" id="diceModeControls">
-            <button class="segment-btn active" data-mode="trait">🎯 Проверка характеристики / навыка</button>
-            <button class="segment-btn" data-mode="damage">⚔️ Бросок урона (Сумма)</button>
+            <h2>Бросок кубиков (SWADE)</h2>
+            <p>Кубик характеристики + Дикий кубик d6 со взрывами (Aces) по правилам Savage Worlds</p>
           </div>
         </div>
 
@@ -4202,9 +4198,9 @@ html, body {
           <!-- Левая панель: настройки и выбор кубиков -->
           <div class="dice-control-card">
             
-            <!-- Секция: Проверка Навыка / Характеристики -->
+            <!-- Секция: Выбор кубика характеристики -->
             <div id="diceTraitSection">
-              <label class="dice-section-label">1. Выберите кубик навыка / характеристики:</label>
+              <label class="dice-section-label">1. Выберите кубик характеристики:</label>
               <div class="dice-selector-grid">
                 <button type="button" class="die-btn" data-die="4">
                   <span class="die-poly">▲</span>
@@ -4238,70 +4234,26 @@ html, body {
                   <input type="checkbox" id="diceWildCardToggle" checked>
                   <span class="dice-toggle-custom"></span>
                   <div class="dice-toggle-text">
-                    <strong>Дикая карта (Wild Card)</strong>
-                    <span>Бросать дополнительный Дикий кубик <strong>d6</strong> (берётся лучший результат)</span>
+                    <strong>Дикий кубик (d6)</strong>
+                    <span>Бросать вместе с кубиком характеристики (берётся лучший результат)</span>
                   </div>
                 </label>
               </div>
             </div>
 
-            <!-- Секция: Бросок Урона -->
-            <div id="diceDamageSection" style="display: none;">
-              <label class="dice-section-label">1. Соберите пул кубиков урона (кликните, чтобы добавить):</label>
-              <div class="damage-dice-picker">
-                <button type="button" class="dmg-add-btn" data-add="4">+ d4</button>
-                <button type="button" class="dmg-add-btn" data-add="6">+ d6</button>
-                <button type="button" class="dmg-add-btn" data-add="8">+ d8</button>
-                <button type="button" class="dmg-add-btn" data-add="10">+ d10</button>
-                <button type="button" class="dmg-add-btn" data-add="12">+ d12</button>
-              </div>
-
-              <div class="damage-pool-display">
-                <div class="damage-pool-tags" id="damagePoolTags">
-                  <span class="damage-tag">d6</span>
-                  <span class="damage-tag">d6</span>
-                </div>
-                <button type="button" class="damage-clear-btn" id="damagePoolClear" title="Очистить пул">Очистить</button>
-              </div>
-
-              <div class="damage-presets-row">
-                <span class="presets-label">Готовые пресеты:</span>
-                <button type="button" class="dmg-preset-btn" data-preset="2d6">2d6 (Пистолет / Нож)</button>
-                <button type="button" class="dmg-preset-btn" data-preset="2d6,1">2d6+1 (Томпсон)</button>
-                <button type="button" class="dmg-preset-btn" data-preset="2d8">2d8 (Винтовка)</button>
-                <button type="button" class="dmg-preset-btn" data-preset="1d8,1d6">d8+d6 (Сила+Оружие)</button>
-                <button type="button" class="dmg-preset-btn" data-preset="3d6">3d6 (Дробовик в упор)</button>
-              </div>
-            </div>
-
-            <!-- Параметры сложности и модификаторы -->
-            <div class="dice-options-grid">
-              <!-- Target Number / Toughness -->
-              <div class="dice-option-block">
-                <label class="dice-section-label" id="diceTargetLabel">Сложность (TN):</label>
-                <div class="dice-chips-row" id="diceTnChips">
-                  <button type="button" class="dice-chip active" data-tn="4">TN 4</button>
-                  <button type="button" class="dice-chip" data-tn="6">TN 6</button>
-                  <button type="button" class="dice-chip" data-tn="8">TN 8</button>
-                  <div class="dice-custom-input-wrap">
-                    <input type="number" id="diceTnInput" class="dice-num-input" value="4" min="1" max="50" title="Своя сложность">
-                  </div>
-                </div>
-              </div>
-
-              <!-- Modifier -->
-              <div class="dice-option-block">
-                <label class="dice-section-label">Модификатор броска:</label>
-                <div class="dice-chips-row" id="diceModChips">
-                  <button type="button" class="dice-chip" data-mod="-4">-4</button>
-                  <button type="button" class="dice-chip" data-mod="-2">-2</button>
-                  <button type="button" class="dice-chip active" data-mod="0">0</button>
-                  <button type="button" class="dice-chip" data-mod="1">+1</button>
-                  <button type="button" class="dice-chip" data-mod="2">+2</button>
-                  <button type="button" class="dice-chip" data-mod="4">+4</button>
-                  <div class="dice-custom-input-wrap">
-                    <input type="number" id="diceModInput" class="dice-num-input" value="0" min="-30" max="30" title="Свой модификатор">
-                  </div>
+            <!-- Модификатор броска -->
+            <div class="dice-option-block" style="margin-top: 1.25rem;">
+              <label class="dice-section-label">2. Модификатор броска:</label>
+              <div class="dice-chips-row" id="diceModChips">
+                <button type="button" class="dice-chip" data-mod="-4">-4</button>
+                <button type="button" class="dice-chip" data-mod="-2">-2</button>
+                <button type="button" class="dice-chip" data-mod="-1">-1</button>
+                <button type="button" class="dice-chip active" data-mod="0">0</button>
+                <button type="button" class="dice-chip" data-mod="1">+1</button>
+                <button type="button" class="dice-chip" data-mod="2">+2</button>
+                <button type="button" class="dice-chip" data-mod="4">+4</button>
+                <div class="dice-custom-input-wrap">
+                  <input type="number" id="diceModInput" class="dice-num-input" value="0" min="-30" max="30" title="Свой модификатор">
                 </div>
               </div>
             </div>
@@ -4311,7 +4263,7 @@ html, body {
               <button type="button" class="dice-main-roll-btn" id="btnExecuteRoll">
                 <span class="dice-roll-icon">🎲</span>
                 <span class="dice-roll-text">БРОСИТЬ КУБИКИ</span>
-                <span class="dice-roll-subtext" id="diceFormulaHint">/r {1d8x, 1d6x}kh</span>
+                <span class="dice-roll-subtext" id="diceFormulaHint">d8 + d6</span>
               </button>
               <button type="button" class="dice-benny-btn" id="btnExecuteBenny" style="display: none;">
                 <span>🪙 Перебросить за Фишку (Benny)</span>
@@ -4319,18 +4271,15 @@ html, body {
             </div>
           </div>
 
-          <!-- Правая панель: результат броска и карточка Foundry -->
+          <!-- Правая панель: результат броска -->
           <div class="dice-display-card">
             <div id="dicePlaceholder" class="dice-empty-placeholder">
               <div class="dice-empty-poly">🎲</div>
               <h3>Готов к броску</h3>
-              <p>Выберите кубик характеристики и нажмите <strong>«Бросить кубики»</strong>.<br>Взрывы (Aces) просчитываются автоматически до тех пор, пока выпадает максимум.</p>
-              <div class="dice-formula-badge" id="diceFormulaPreview">
-                Команда Foundry: <code>/r {1d8x, 1d6x}kh</code>
-              </div>
+              <p>Выберите кубик характеристики, укажите модификатор при необходимости и нажмите <strong>«Бросить кубики»</strong>.<br>Взрывы (Aces) при максимальных значениях суммируются автоматически.</p>
             </div>
 
-            <!-- Карточка актуального результата -->
+            <!-- Карточка результата -->
             <div id="diceActiveResult" class="dice-result-container" style="display: none;"></div>
 
             <!-- История бросков сессии -->
@@ -6881,17 +6830,14 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
   };
 
   // =========================================================================
-  // SWADE DICE ROLLER CONTROLLER (FOUNDRY VTT INTEGRATION)
+  // SWADE DICE ROLLER CONTROLLER
   // =========================================================================
   const DiceRoller = {
-    storageKey: 'porto_dice_history_v1',
+    storageKey: 'porto_dice_history_v2',
     state: {
-      mode: 'trait', // 'trait' | 'damage'
       traitDie: 8, // 4, 6, 8, 10, 12
       wildCard: true,
       modifier: 0,
-      targetNumber: 4, // TN for trait, or Toughness for damage
-      damageDice: [6, 6], // default 2d6
       lastRoll: null,
       history: []
     },
@@ -6910,19 +6856,6 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
     },
 
     bindEvents() {
-      // Mode Switcher
-      const modeControls = document.getElementById('diceModeControls');
-      if (modeControls) {
-        modeControls.addEventListener('click', (e) => {
-          const btn = e.target.closest('.segment-btn');
-          if (!btn) return;
-          modeControls.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          const mode = btn.getAttribute('data-mode');
-          this.setMode(mode);
-        });
-      }
-
       // Trait Die Selector (d4, d6, d8, d10, d12)
       const traitGrid = document.querySelector('.dice-selector-grid');
       if (traitGrid) {
@@ -6942,70 +6875,6 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
         wildToggle.addEventListener('change', (e) => {
           this.state.wildCard = e.target.checked;
           this.updateFormulaPreview();
-        });
-      }
-
-      // Damage Add Buttons (+d4, +d6, ...)
-      const dmgPicker = document.querySelector('.damage-dice-picker');
-      if (dmgPicker) {
-        dmgPicker.addEventListener('click', (e) => {
-          const btn = e.target.closest('.dmg-add-btn');
-          if (!btn) return;
-          const sides = parseInt(btn.getAttribute('data-add'), 10) || 6;
-          if (this.state.damageDice.length < 8) {
-            this.state.damageDice.push(sides);
-            this.renderDamagePool();
-            this.updateFormulaPreview();
-          } else {
-            Utils.showToast('Максимум 8 кубиков в пуле урона');
-          }
-        });
-      }
-
-      // Damage Clear Button
-      const dmgClear = document.getElementById('damagePoolClear');
-      if (dmgClear) {
-        dmgClear.addEventListener('click', () => {
-          this.state.damageDice = [];
-          this.renderDamagePool();
-          this.updateFormulaPreview();
-        });
-      }
-
-      // Damage Presets
-      const dmgPresets = document.querySelector('.damage-presets-row');
-      if (dmgPresets) {
-        dmgPresets.addEventListener('click', (e) => {
-          const btn = e.target.closest('.dmg-preset-btn');
-          if (!btn) return;
-          const preset = btn.getAttribute('data-preset');
-          this.applyDamagePreset(preset);
-        });
-      }
-
-      // TN Chips & Custom Input
-      const tnChips = document.getElementById('diceTnChips');
-      const tnInput = document.getElementById('diceTnInput');
-      if (tnChips) {
-        tnChips.addEventListener('click', (e) => {
-          const btn = e.target.closest('.dice-chip');
-          if (!btn) return;
-          tnChips.querySelectorAll('.dice-chip').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          const val = parseInt(btn.getAttribute('data-tn'), 10) || 4;
-          this.state.targetNumber = val;
-          if (tnInput) tnInput.value = val;
-        });
-      }
-      if (tnInput) {
-        tnInput.addEventListener('input', (e) => {
-          const val = parseInt(e.target.value, 10) || 4;
-          this.state.targetNumber = Math.max(1, val);
-          if (tnChips) {
-            tnChips.querySelectorAll('.dice-chip').forEach(b => {
-              b.classList.toggle('active', parseInt(b.getAttribute('data-tn'), 10) === val);
-            });
-          }
         });
       }
 
@@ -7071,107 +6940,18 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       });
     },
 
-    setMode(mode) {
-      this.state.mode = mode;
-      const traitSec = document.getElementById('diceTraitSection');
-      const dmgSec = document.getElementById('diceDamageSection');
-      const targetLabel = document.getElementById('diceTargetLabel');
-      const tnInput = document.getElementById('diceTnInput');
-
-      if (mode === 'damage') {
-        if (traitSec) traitSec.style.display = 'none';
-        if (dmgSec) dmgSec.style.display = 'block';
-        if (targetLabel) targetLabel.textContent = 'Стойкость цели (Toughness):';
-        if (tnInput && tnInput.value === '4') tnInput.value = '6';
-        this.state.targetNumber = 6;
-        this.renderDamagePool();
-      } else {
-        if (traitSec) traitSec.style.display = 'block';
-        if (dmgSec) dmgSec.style.display = 'none';
-        if (targetLabel) targetLabel.textContent = 'Сложность (TN):';
-        if (tnInput && tnInput.value === '6') tnInput.value = '4';
-        this.state.targetNumber = 4;
+    getFormulaString() {
+      const mod = this.state.modifier;
+      const modStr = mod > 0 ? ` + ${mod}` : (mod < 0 ? ` - ${Math.abs(mod)}` : '');
+      if (this.state.wildCard) {
+        return `d${this.state.traitDie} + d6 (дикий)${modStr}`;
       }
-      this.updateFormulaPreview();
-    },
-
-    applyDamagePreset(preset) {
-      if (preset === '2d6') {
-        this.state.damageDice = [6, 6];
-        this.state.modifier = 0;
-      } else if (preset === '2d6,1') {
-        this.state.damageDice = [6, 6];
-        this.state.modifier = 1;
-        const modInput = document.getElementById('diceModInput');
-        if (modInput) modInput.value = 1;
-      } else if (preset === '2d8') {
-        this.state.damageDice = [8, 8];
-        this.state.modifier = 0;
-      } else if (preset === '1d8,1d6') {
-        this.state.damageDice = [8, 6];
-        this.state.modifier = 0;
-      } else if (preset === '3d6') {
-        this.state.damageDice = [6, 6, 6];
-        this.state.modifier = 0;
-      }
-      this.renderDamagePool();
-      this.updateFormulaPreview();
-    },
-
-    renderDamagePool() {
-      const tagsContainer = document.getElementById('damagePoolTags');
-      if (!tagsContainer) return;
-      if (this.state.damageDice.length === 0) {
-        tagsContainer.innerHTML = '<span style="color:var(--text-tertiary); font-size:0.8rem;">Пул пуст (кликните кнопки выше)</span>';
-        return;
-      }
-      tagsContainer.innerHTML = this.state.damageDice.map((d, idx) => `
-        <span class="damage-tag">
-          d${d}
-          <span class="damage-tag-remove" data-idx="${idx}" title="Удалить">✕</span>
-        </span>
-      `).join('');
-
-      tagsContainer.querySelectorAll('.damage-tag-remove').forEach(el => {
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const removeIdx = parseInt(el.getAttribute('data-idx'), 10);
-          this.state.damageDice.splice(removeIdx, 1);
-          this.renderDamagePool();
-          this.updateFormulaPreview();
-        });
-      });
+      return `d${this.state.traitDie}${modStr}`;
     },
 
     updateFormulaPreview() {
       const hint = document.getElementById('diceFormulaHint');
-      const preview = document.getElementById('diceFormulaPreview');
-      const cmd = this.getFoundryCommand();
-
-      if (hint) hint.textContent = cmd;
-      if (preview) preview.innerHTML = `Команда Foundry: <code>${Utils.escapeHtml(cmd)}</code>`;
-    },
-
-    getFoundryCommand() {
-      const mod = this.state.modifier;
-      let modStr = '';
-      if (mod > 0) modStr = ` + ${mod}`;
-      else if (mod < 0) modStr = ` - ${Math.abs(mod)}`;
-
-      if (this.state.mode === 'trait') {
-        if (this.state.wildCard) {
-          return `/r {1d${this.state.traitDie}x, 1d6x}kh${modStr}`;
-        } else {
-          return `/r 1d${this.state.traitDie}x${modStr}`;
-        }
-      } else {
-        if (this.state.damageDice.length === 0) return `/r 0${modStr}`;
-        // Group dice by sides
-        const counts = {};
-        this.state.damageDice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
-        const parts = Object.keys(counts).map(d => `${counts[d]}d${d}x`);
-        return `/r ${parts.join(' + ')}${modStr}`;
-      }
+      if (hint) hint.textContent = this.getFormulaString();
     },
 
     rollExplodingDie(sides) {
@@ -7187,7 +6967,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
     },
 
     executeRoll(isBenny = false) {
-      // Trigger tactile animation
+      // Visual feedback animation
       const rollBtn = document.getElementById('btnExecuteRoll');
       if (rollBtn) {
         rollBtn.classList.add('die-rolling');
@@ -7195,130 +6975,82 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       }
 
       const timestamp = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      let rollData = null;
 
-      if (this.state.mode === 'trait') {
-        const traitRoll = this.rollExplodingDie(this.state.traitDie);
-        let wildRoll = null;
-        if (this.state.wildCard) {
-          wildRoll = this.rollExplodingDie(6);
-        }
-
-        // Check Critical Failure: Snake eyes (initial rolls are both 1)
-        const isCritical = this.state.wildCard && traitRoll.rolls[0] === 1 && wildRoll.rolls[0] === 1;
-
-        let chosenTotal = 0;
-        let winner = 'trait';
-
-        if (isCritical) {
-          chosenTotal = 1;
-          winner = 'none';
-        } else if (!this.state.wildCard) {
-          chosenTotal = traitRoll.total;
-          winner = 'trait';
-        } else if (traitRoll.total >= wildRoll.total) {
-          chosenTotal = traitRoll.total;
-          winner = 'trait';
-        } else {
-          chosenTotal = wildRoll.total;
-          winner = 'wild';
-        }
-
-        const finalTotal = isCritical ? 1 : (chosenTotal + this.state.modifier);
-        const tn = this.state.targetNumber;
-        const margin = finalTotal - tn;
-
-        let verdict = '';
-        let badgeType = '';
-        let raises = 0;
-
-        if (isCritical) {
-          verdict = '💀 КРИТИЧЕСКИЙ ПРОВАЛ (SNAKE EYES)';
-          badgeType = 'critical';
-        } else if (finalTotal < tn) {
-          verdict = `❌ ПРОВАЛ (недобор ${Math.abs(margin)})`;
-          badgeType = 'failure';
-        } else {
-          raises = Math.floor(margin / 4);
-          if (raises === 0) {
-            verdict = '✅ УСПЕХ';
-            badgeType = 'success';
-          } else if (raises === 1) {
-            verdict = '✨ УСПЕХ С 1 ПОДЪЁМОМ!';
-            badgeType = 'raise';
-          } else {
-            verdict = `🔥 УСПЕХ С ${raises} ПОДЪЁМАМИ!`;
-            badgeType = 'raise-epic';
-          }
-        }
-
-        rollData = {
-          id: 'roll_' + Date.now(),
-          mode: 'trait',
-          isBenny,
-          timestamp,
-          formula: this.getFoundryCommand(),
-          traitDie: this.state.traitDie,
-          traitRoll,
-          wildCard: this.state.wildCard,
-          wildRoll,
-          winner,
-          modifier: this.state.modifier,
-          targetNumber: tn,
-          finalTotal,
-          isCritical,
-          raises,
-          verdict,
-          badgeType
-        };
-
-      } else {
-        // Damage Mode
-        if (this.state.damageDice.length === 0) {
-          Utils.showToast('Добавьте хотя бы один кубик урона');
-          return;
-        }
-
-        const diceRolls = this.state.damageDice.map(d => this.rollExplodingDie(d));
-        const diceSum = diceRolls.reduce((sum, r) => sum + r.total, 0);
-        const finalTotal = diceSum + this.state.modifier;
-        const toughness = this.state.targetNumber;
-        const margin = finalTotal - toughness;
-
-        let verdict = '';
-        let badgeType = '';
-        let raises = 0;
-
-        if (finalTotal < toughness) {
-          verdict = `❌ НЕ ПРОБИТО (Стойкость ${toughness})`;
-          badgeType = 'failure';
-        } else {
-          raises = Math.floor(margin / 4);
-          if (raises === 0) {
-            verdict = '⚡ ШОК (SHAKEN)';
-            badgeType = 'raise';
-          } else {
-            verdict = `💥 ШОК И ${raises} ${Utils.pluralize(raises, ['РАНЕНИЕ', 'РАНЕНИЯ', 'РАНЕНИЙ'])}!`;
-            badgeType = 'raise-epic';
-          }
-        }
-
-        rollData = {
-          id: 'roll_' + Date.now(),
-          mode: 'damage',
-          isBenny,
-          timestamp,
-          formula: this.getFoundryCommand(),
-          damageDice: this.state.damageDice,
-          diceRolls,
-          modifier: this.state.modifier,
-          targetNumber: toughness,
-          finalTotal,
-          raises,
-          verdict,
-          badgeType
-        };
+      const traitRoll = this.rollExplodingDie(this.state.traitDie);
+      let wildRoll = null;
+      if (this.state.wildCard) {
+        wildRoll = this.rollExplodingDie(6);
       }
+
+      // Critical Failure: Snake eyes (initial rolls are both 1)
+      const isCritical = this.state.wildCard && traitRoll.rolls[0] === 1 && wildRoll.rolls[0] === 1;
+
+      let chosenTotal = 0;
+      let winner = 'trait';
+
+      if (isCritical) {
+        chosenTotal = 1;
+        winner = 'none';
+      } else if (!this.state.wildCard) {
+        chosenTotal = traitRoll.total;
+        winner = 'trait';
+      } else if (traitRoll.total >= wildRoll.total) {
+        chosenTotal = traitRoll.total;
+        winner = 'trait';
+      } else {
+        chosenTotal = wildRoll.total;
+        winner = 'wild';
+      }
+
+      const finalTotal = isCritical ? 1 : (chosenTotal + this.state.modifier);
+
+      let verdictTitle = '';
+      let verdictDesc = '';
+      let badgeType = 'success';
+
+      if (isCritical) {
+        verdictTitle = '💀 КРИТИЧЕСКИЙ ПРОВАЛ';
+        verdictDesc = 'Оба кубика показали 1 при первом броске (Snake Eyes)! Автоматический критический провал. Переброс за фишку невозможен.';
+        badgeType = 'critical';
+      } else {
+        verdictTitle = `ВЫПАЛО: ${finalTotal}`;
+        const winnerName = winner === 'trait' ? `кубик характеристики (d${this.state.traitDie})` : `Дикий кубик (d6)`;
+        const winnerScore = winner === 'trait' ? traitRoll.total : wildRoll.total;
+        
+        let descParts = [`Победил ${winnerName}: <strong>${winnerScore}</strong>.`];
+        if (this.state.modifier !== 0) {
+          descParts.push(`Модификатор: <strong>${this.state.modifier > 0 ? '+' : ''}${this.state.modifier}</strong>.`);
+        }
+        
+        const aces = [];
+        if (traitRoll.aced) aces.push(`кубик d${this.state.traitDie} взорвался (${traitRoll.rolls.join('!') + '!'})`);
+        if (wildRoll && wildRoll.aced) aces.push(`дикий d6 взорвался (${wildRoll.rolls.join('!') + '!'})`);
+        if (aces.length > 0) {
+          descParts.push(`💥 ${aces.join(', ')}.`);
+        }
+
+        descParts.push(`Итоговое значение: <strong>${finalTotal}</strong>.`);
+        verdictDesc = descParts.join(' ');
+        badgeType = (traitRoll.aced || (wildRoll && wildRoll.aced)) ? 'raise-epic' : 'raise';
+      }
+
+      const rollData = {
+        id: 'roll_' + Date.now(),
+        isBenny,
+        timestamp,
+        formula: this.getFormulaString(),
+        traitDie: this.state.traitDie,
+        traitRoll,
+        wildCard: this.state.wildCard,
+        wildRoll,
+        winner,
+        modifier: this.state.modifier,
+        finalTotal,
+        isCritical,
+        verdictTitle,
+        verdictDesc,
+        badgeType
+      };
 
       this.state.lastRoll = rollData;
       this.state.history.unshift(rollData);
@@ -7334,11 +7066,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       // Show/hide Benny button
       const bennyBtn = document.getElementById('btnExecuteBenny');
       if (bennyBtn) {
-        if (rollData.isCritical) {
-          bennyBtn.style.display = 'none';
-        } else {
-          bennyBtn.style.display = 'flex';
-        }
+        bennyBtn.style.display = isCritical ? 'none' : 'flex';
       }
     },
 
@@ -7350,161 +7078,81 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
       if (placeholder) placeholder.style.display = 'none';
       container.style.display = 'block';
 
-      if (roll.mode === 'trait') {
-        const t = roll.traitRoll;
-        const w = roll.wildRoll;
-        const mod = roll.modifier;
+      const t = roll.traitRoll;
+      const w = roll.wildRoll;
+      const mod = roll.modifier;
+      const winnerBase = roll.winner === 'trait' ? t.total : (roll.winner === 'wild' ? w.total : 1);
 
-        const winnerBase = roll.winner === 'trait' ? t.total : (roll.winner === 'wild' ? w.total : 1);
+      container.innerHTML = `
+        <div class="foundry-card">
+          <div class="foundry-card-header">
+            <span class="foundry-card-brand">
+              <span>🎲</span>
+              <span>РЕЗУЛЬТАТ БРОСКА${roll.isBenny ? ' (ФИШКА / BENNY)' : ''}</span>
+            </span>
+            <span class="foundry-card-time">${roll.timestamp}</span>
+          </div>
 
-        container.innerHTML = `
-          <div class="foundry-card">
-            <div class="foundry-card-header">
-              <span class="foundry-card-brand">
-                <span>🎲</span>
-                <span>FOUNDRY VTT • SWADE ROLL${roll.isBenny ? ' (ФИШКА / BENNY)' : ''}</span>
-              </span>
-              <span class="foundry-card-time">${roll.timestamp}</span>
-            </div>
+          <div class="foundry-card-body">
+            <div class="foundry-dice-grid">
+              <!-- Trait Die Box -->
+              <div class="foundry-die-box ${roll.winner === 'trait' ? 'winner' : (roll.winner === 'wild' ? 'loser' : '')}">
+                ${roll.winner === 'trait' ? '<span class="die-winner-badge">★ ВЫБРАН</span>' : ''}
+                <span class="die-box-tag">Кубик характеристики (d${roll.traitDie})</span>
+                <span class="die-box-total">${t.total}</span>
+                <div class="die-box-steps">
+                  ${t.rolls.map((r) => `<span class="die-step-num ${r === roll.traitDie ? 'aced' : ''}">${r}${r === roll.traitDie ? '!' : ''}</span>`).join(' + ')}
+                </div>
+              </div>
 
-            <div class="foundry-card-body">
-              <div class="foundry-dice-grid">
-                <!-- Trait Die Box -->
-                <div class="foundry-die-box ${roll.winner === 'trait' ? 'winner' : (roll.winner === 'wild' ? 'loser' : '')}">
-                  ${roll.winner === 'trait' ? '<span class="die-winner-badge">★ ВЫБРАН</span>' : ''}
-                  <span class="die-box-tag">Кубик навыка (d${roll.traitDie})</span>
-                  <span class="die-box-total">${t.total}</span>
+              <!-- Wild Die Box -->
+              ${roll.wildCard ? `
+                <div class="foundry-die-box ${roll.winner === 'wild' ? 'winner' : (roll.winner === 'trait' ? 'loser' : '')}">
+                  ${roll.winner === 'wild' ? '<span class="die-winner-badge">★ ВЫБРАН</span>' : ''}
+                  <span class="die-box-tag wild">Дикий кубик (d6)</span>
+                  <span class="die-box-total">${w.total}</span>
                   <div class="die-box-steps">
-                    ${t.rolls.map((r) => `<span class="die-step-num ${r === roll.traitDie ? 'aced' : ''}">${r}${r === roll.traitDie ? '!' : ''}</span>`).join(' + ')}
+                    ${w.rolls.map((r) => `<span class="die-step-num ${r === 6 ? 'aced' : ''}">${r}${r === 6 ? '!' : ''}</span>`).join(' + ')}
                   </div>
                 </div>
-
-                <!-- Wild Die Box -->
-                ${roll.wildCard ? `
-                  <div class="foundry-die-box ${roll.winner === 'wild' ? 'winner' : (roll.winner === 'trait' ? 'loser' : '')}">
-                    ${roll.winner === 'wild' ? '<span class="die-winner-badge">★ ВЫБРАН</span>' : ''}
-                    <span class="die-box-tag wild">Дикий кубик (d6)</span>
-                    <span class="die-box-total">${w.total}</span>
-                    <div class="die-box-steps">
-                      ${w.rolls.map((r) => `<span class="die-step-num ${r === 6 ? 'aced' : ''}">${r}${r === 6 ? '!' : ''}</span>`).join(' + ')}
-                    </div>
-                  </div>
-                ` : `
-                  <div class="foundry-die-box loser" style="justify-content:center; text-align:center;">
-                    <span class="die-box-tag">Дикий кубик</span>
-                    <span style="color:var(--text-tertiary); font-size:0.85rem;">Отключен (Экстра)</span>
-                  </div>
-                `}
-              </div>
-
-              <!-- Calculation Line -->
-              <div class="foundry-calc-line">
-                <span>База: <strong>${winnerBase}</strong></span>
-                ${mod !== 0 ? `<span>${mod > 0 ? '+' : '−'} Модификатор: <strong>${Math.abs(mod)}</strong></span>` : ''}
-                <span>= Итог: <strong>${roll.finalTotal}</strong></span>
-                <span>(против TN ${roll.targetNumber})</span>
-              </div>
-
-              <!-- Outcome Banner -->
-              <div class="foundry-outcome-banner ${roll.badgeType}">
-                <div class="outcome-title">${roll.verdict}</div>
-                <div class="outcome-desc">
-                  ${roll.isCritical 
-                    ? 'Оба кубика показали 1! Автоматический критический провал. Переброс за фишку невозможен!' 
-                    : `Итоговый результат: ${roll.finalTotal} при сложности ${roll.targetNumber}. ${roll.raises > 0 ? `Превышение на ${roll.finalTotal - roll.targetNumber} (+${roll.raises} ${Utils.pluralize(roll.raises, ['подъём', 'подъёма', 'подъёмов'])}).` : ''}`}
+              ` : `
+                <div class="foundry-die-box loser" style="justify-content:center; text-align:center;">
+                  <span class="die-box-tag">Дикий кубик</span>
+                  <span style="color:var(--text-tertiary); font-size:0.85rem;">Отключен</span>
                 </div>
-              </div>
+              `}
+            </div>
 
-              <!-- Actions Footer -->
-              <div class="foundry-card-actions">
-                <button type="button" class="btn-foundry-copy" id="btnCopyFoundryCmd">
-                  <span>📋</span>
-                  <span>Команда Foundry: <code>${Utils.escapeHtml(roll.formula)}</code></span>
-                </button>
-                <button type="button" class="btn-foundry-copy" id="btnCopyRollText">
-                  <span>💬</span>
-                  <span>Скопировать результат</span>
-                </button>
-              </div>
+            <!-- Calculation Line -->
+            <div class="foundry-calc-line">
+              <span>Базовый результат: <strong>${winnerBase}</strong></span>
+              ${mod !== 0 ? `<span>${mod > 0 ? '+' : '−'} Модификатор: <strong>${Math.abs(mod)}</strong></span>` : ''}
+              <span>= Итоговое значение: <strong>${roll.finalTotal}</strong></span>
+            </div>
+
+            <!-- Outcome Message Banner -->
+            <div class="foundry-outcome-banner ${roll.badgeType}">
+              <div class="outcome-title">${roll.verdictTitle}</div>
+              <div class="outcome-desc">${roll.verdictDesc}</div>
+            </div>
+
+            <!-- Actions Footer -->
+            <div class="foundry-card-actions">
+              <button type="button" class="btn-foundry-copy" id="btnCopyRollText" style="width: 100%; justify-content: center;">
+                <span>📋</span>
+                <span>Скопировать результат</span>
+              </button>
             </div>
           </div>
-        `;
-      } else {
-        // Damage Result Card
-        const mod = roll.modifier;
-        const rolls = roll.diceRolls;
+        </div>
+      `;
 
-        container.innerHTML = `
-          <div class="foundry-card">
-            <div class="foundry-card-header">
-              <span class="foundry-card-brand">
-                <span>⚔️</span>
-                <span>FOUNDRY VTT • БРОСОК УРОНА (SWADE)</span>
-              </span>
-              <span class="foundry-card-time">${roll.timestamp}</span>
-            </div>
-
-            <div class="foundry-card-body">
-              <div class="foundry-dice-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
-                ${rolls.map((r) => `
-                  <div class="foundry-die-box winner">
-                    <span class="die-box-tag">d${r.sides}</span>
-                    <span class="die-box-total" style="font-size:1.8rem;">${r.total}</span>
-                    <div class="die-box-steps">
-                      ${r.rolls.map(val => `<span class="die-step-num ${val === r.sides ? 'aced' : ''}">${val}${val === r.sides ? '!' : ''}</span>`).join('+')}
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-
-              <div class="foundry-calc-line">
-                <span>Сумма кубиков: <strong>${rolls.reduce((s, r) => s + r.total, 0)}</strong></span>
-                ${mod !== 0 ? `<span>${mod > 0 ? '+' : '−'} Модификатор: <strong>${Math.abs(mod)}</strong></span>` : ''}
-                <span>= Урон: <strong>${roll.finalTotal}</strong></span>
-                <span>(Стойкость: ${roll.targetNumber})</span>
-              </div>
-
-              <div class="foundry-outcome-banner ${roll.badgeType}">
-                <div class="outcome-title">${roll.verdict}</div>
-                <div class="outcome-desc">
-                  Итоговый урон: ${roll.finalTotal} против Стойкости цели ${roll.targetNumber}.
-                </div>
-              </div>
-
-              <div class="foundry-card-actions">
-                <button type="button" class="btn-foundry-copy" id="btnCopyFoundryCmd">
-                  <span>📋</span>
-                  <span>Команда: <code>${Utils.escapeHtml(roll.formula)}</code></span>
-                </button>
-                <button type="button" class="btn-foundry-copy" id="btnCopyRollText">
-                  <span>💬</span>
-                  <span>Скопировать результат</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      // Copy Handlers
-      const btnCmd = container.querySelector('#btnCopyFoundryCmd');
-      if (btnCmd) {
-        btnCmd.addEventListener('click', () => {
-          navigator.clipboard.writeText(roll.formula).then(() => {
-            Utils.showToast('✓ Скопирована команда для Foundry: ' + roll.formula);
-          });
-        });
-      }
-
+      // Copy Handler
       const btnTxt = container.querySelector('#btnCopyRollText');
       if (btnTxt) {
         btnTxt.addEventListener('click', () => {
-          let text = '';
-          if (roll.mode === 'trait') {
-            text = `[SWADE] ${roll.formula} ➔ ${roll.finalTotal} vs TN ${roll.targetNumber} (${roll.verdict})`;
-          } else {
-            text = `[Урон SWADE] ${roll.formula} ➔ ${roll.finalTotal} vs Стойкость ${roll.targetNumber} (${roll.verdict})`;
-          }
+          const plainDesc = roll.verdictDesc.replace(/<[^>]*>/g, '');
+          const text = `[SWADE] ${roll.formula} ➔ ${roll.finalTotal} (${plainDesc})`;
           navigator.clipboard.writeText(text).then(() => {
             Utils.showToast('✓ Результат броска скопирован!');
           });
@@ -7528,8 +7176,7 @@ window.PORTO_DATA = {"summaries":[{"id":"2026-06-18 Соло Хизер","title"
             <span class="history-formula">${Utils.escapeHtml(item.formula)}</span>
           </div>
           <div class="history-right">
-            <span class="history-total">${item.finalTotal}</span>
-            <span class="history-pill ${item.badgeType}">${item.verdict.split(' ')[0]} ${item.verdict.split(' ')[1] || ''}</span>
+            <span class="history-total" style="font-size:1.15rem; font-weight:800; color:var(--gold-accent);">${item.finalTotal}</span>
           </div>
         </div>
       `).join('');

@@ -3648,15 +3648,16 @@ html, body {
 
 .outcome-title {
   font-family: var(--font-title);
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.25rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
 }
 
 .outcome-desc {
-  font-size: 0.85rem;
-  opacity: 0.9;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  opacity: 0.95;
 }
 
 /* Foundry Actions Footer */
